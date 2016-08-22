@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="OpenVDB">
+      <UniqueIdentifier>{9082fee0-2b56-4b27-b021-4c01f3dffe13}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MPM">
+      <UniqueIdentifier>{ce12c826-2798-4d5b-8a40-290366a78a74}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\MMPSolver_Apple.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBCopyNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBData.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBFilterNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBFromMayaFluidNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBFromPolygonsNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBReadNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBToPolygonsNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBTransformNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBUtil.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBVisualizeNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\OpenVDBWriteNode.cc">
+      <Filter>OpenVDB</Filter>
+    </ClCompile>
+    <ClCompile Include="..\stdafx.cpp" />
+    <ClCompile Include="..\MpmSimulator.cpp">
+      <Filter>MPM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Particle.cpp">
+      <Filter>MPM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\MpmCore.cpp">
+      <Filter>MPM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\MpmSimulateCmd.cpp">
+      <Filter>MPM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\StatusRecorder.cpp">
+      <Filter>MPM</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\MMPSolver_Apple.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBCopyNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBData.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBFilterNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBFromMayaFluidNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBFromPolygonsNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBReadNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBToPolygonsNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBTransformNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBUtil.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBVisualizeNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\OpenVDBWriteNode.h">
+      <Filter>OpenVDB</Filter>
+    </ClInclude>
+    <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="..\MpmSimulator.h">
+      <Filter>MPM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mpmCore.h">
+      <Filter>MPM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Particle.h">
+      <Filter>MPM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\MpmSimulateCmd.h">
+      <Filter>MPM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\StatusRecorder.h">
+      <Filter>MPM</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
