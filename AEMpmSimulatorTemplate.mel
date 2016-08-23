@@ -100,6 +100,11 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 	editorTemplate -beginScrollLayout;
 		
 		editorTemplate -beginLayout "Solver" -collapse false;
+			editorTemplate -addControl "boxMin";
+			editorTemplate -addControl "boxMax";
+			editorTemplate -addControl "cellSize";
+			editorTemplate -addControl "particlePerCell";
+			editorTemplate -addControl "boundary";
 			editorTemplate -callCustom "initSimulatorControl" "modifySimulatorControl" "noAttr";
 		editorTemplate -endLayout;
 				

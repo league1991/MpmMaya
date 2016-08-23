@@ -1,10 +1,12 @@
 #include "stdafx.h"
 
-GridField::GridField( Vector3f& grid_size, Vector3f& grid_min, Vector3i& grid_division )
+GridField::GridField( const Vector3f& grid_size, const Vector3f& grid_min, const Vector3i& grid_division, int boundary)
 {
 	this->grid_size=grid_size;
 	this->grid_min=grid_min;
 	this->grid_division=grid_division;
+	this->grid_max=grid_min + grid_size.cwiseProduct(grid_division.cast<float>());
+	this->boundary = boundary;
 
 	grids.resize(boost::extents[grid_division[0]][grid_division[1]][grid_division[2]]);
 	for(int i=0;i<grids.shape()[0];i++)
@@ -15,7 +17,9 @@ GridField::GridField( Vector3f& grid_size, Vector3f& grid_min, Vector3i& grid_di
 
 GridField::GridField()
 {
-
+	grid_size.setZero();
+	grid_division.setZero();
+	boundary = 0;
 }
 
 void GridField::clear()
@@ -186,7 +190,9 @@ void MpmCore::init_particle_volume_velocity()
 void MpmCore::from_particles_to_grid()
 {
 	for(int x=0;x<grid->grids.shape()[0];x++)
+	{
 		for(int y=0;y<grid->grids.shape()[1];y++)
+		{
 			for(int z=0;z<grid->grids.shape()[2];z++)
 			{
 				grid->grids[x][y][z]->mass=0;
@@ -195,37 +201,39 @@ void MpmCore::from_particles_to_grid()
 				grid->grids[x][y][z]->velocity_new = Vector3f(0,0,0);
 				grid->grids[x][y][z]->active=false;
 			}
+		}
+	}
 
-			for(int pit=0;pit<particles.size();pit++)
+	for(int pit=0;pit<particles.size();pit++)
+	{
+		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
+		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
+
+		Matrix3f cauchyStress=cauchy_stress(particles[pit]->Fe, particles[pit]->Fp)*particles[pit]->volume*-1;
+		for(int z=-2; z<=2;z++)
+		{
+			for(int y=-2; y<=2;y++)
 			{
-				Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
-				Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
-
-				Matrix3f cauchyStress=cauchy_stress(particles[pit]->Fe, particles[pit]->Fp)*particles[pit]->volume*-1;
-				for(int z=-2; z<=2;z++)
+				for(int x=-2; x<=2;x++)
 				{
-					for(int y=-2; y<=2;y++)
+					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
+					if(inGrid(index, grid->grid_division))
 					{
-						for(int x=-2; x<=2;x++)
-						{
-							Vector3i index=p_grid_index_i+Vector3i(x,y,z);
-							if(inGrid(index, grid->grid_division))
-							{
-								Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
-								float weight_p=weight(xp);
-								Vector3f gradient_weight=weight_gradientF(xp).cwiseQuotient(grid->grid_size);
+						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
+						float weight_p=weight(xp);
+						Vector3f gradient_weight=weight_gradientF(xp).cwiseQuotient(grid->grid_size);
 
-								grid->grids[index[0]][index[1]][index[2]]->mass+=weight_p*particles[pit]->pmass;
+						grid->grids[index[0]][index[1]][index[2]]->mass+=weight_p*particles[pit]->pmass;
 
-								//now velocity is v*m. we need to divide m before use it
-								grid->grids[index[0]][index[1]][index[2]]->velocity_old+=weight_p*particles[pit]->pmass*particles[pit]->velocity;
-								//fomular 6
-								grid->grids[index[0]][index[1]][index[2]]->external_force+=cauchyStress*gradient_weight;
-							}
-						}
+						//now velocity is v*m. we need to divide m before use it
+						grid->grids[index[0]][index[1]][index[2]]->velocity_old+=weight_p*particles[pit]->pmass*particles[pit]->velocity;
+						//fomular 6
+						grid->grids[index[0]][index[1]][index[2]]->external_force+=cauchyStress*gradient_weight;
 					}
 				}
 			}
+		}
+	}
 }
 
 void MpmCore::compute_grid_velocity()
@@ -271,18 +279,21 @@ bool MpmCore::getSDFNormal( Vector3f& grid_idx, Vector3f& out_sdf_normal )
 bool MpmCore::getSDFNormal_box( Vector3f& grid_idx_new, Vector3f& out_sdf_normal )
 {
 	out_sdf_normal= Vector3f(0,0,0);
-	if(grid_idx_new[0]>=190)
+	if(grid_idx_new[0]>=grid->grid_division[0]-grid->boundary)
 		out_sdf_normal[0]=-1;
-	if(grid_idx_new[0]<=10)
+	if(grid_idx_new[0]<grid->boundary)
 		out_sdf_normal[0]=1;
-	if(grid_idx_new[1]>=190)
+
+	if(grid_idx_new[1]>=grid->grid_division[1]-grid->boundary)
 		out_sdf_normal[1]=-1;
-	if(grid_idx_new[1]<=10)
+	if(grid_idx_new[1]<grid->boundary)
 		out_sdf_normal[1]=1;
-	if(grid_idx_new[2]>=190)
+
+	if(grid_idx_new[2]>=grid->grid_division[2]-grid->boundary)
 		out_sdf_normal[2]=-1;
-	if(grid_idx_new[2]<=10)
+	if(grid_idx_new[2]<grid->boundary)
 		out_sdf_normal[2]=1;
+
 	if(out_sdf_normal.norm()<=0.00000001)
 		return false;
 	out_sdf_normal.normalize();
@@ -502,7 +513,7 @@ bool MpmCore::for_each_frame(int ithFrame)
 	if(ithFrame != start)
 	{
 		MpmStatus status;
-		bool res = m_recorder.getStatus(ithFrame-1, status);
+		bool res = m_recorder.getStatus(ithFrame, status);
 		if (res)
 		{
 			res = status.copy(particles);
@@ -530,8 +541,51 @@ bool MpmCore::for_each_frame(int ithFrame)
 	ctrl_params.frame++;
 
 	// 将模拟结果记下来
-	m_recorder.addStatus(ithFrame, MpmStatus(particles));
+	m_recorder.addStatus(ithFrame+1, MpmStatus(particles));
 	return true;
+}
+
+void MpmCore::createGrid(const Vector3f& gridMin,
+						 const Vector3f& gridMax,
+						 const Vector3f& gridCellSize,
+						 int boundary)
+{
+	Vector3i gridDimClamp = (gridMax-gridMin).cwiseQuotient(gridCellSize).cwiseMax(Vector3f(5,5,5)).cast<int>();
+	Vector3f cellSize = (gridMax - gridMin).cwiseQuotient(gridDimClamp.cast<float>());
+	
+	grid = new GridField(cellSize, gridMin, gridDimClamp, boundary);
+	const int bId[3][2] = {
+		{boundary, gridDimClamp[0]-1-boundary},
+		{boundary, gridDimClamp[1]-1-boundary},
+		{boundary, gridDimClamp[2]-1-boundary},
+	};
+	float depth[3];
+	for (int i = 0; i < gridDimClamp[0]; ++i)
+	{
+		if (i >= bId[0][0] && i <= bId[0][1])
+			continue;
+		else
+			depth[0] = min(i-bId[0][0],bId[0][1]-i) * cellSize[0];
+
+		for (int j = 0; j < gridDimClamp[1]; ++j)
+		{
+			if (j >= bId[1][0] && j <= bId[1][1])
+				continue;
+			else
+				depth[1] = min(j-bId[1][0],bId[1][1]-j) * cellSize[1];
+
+			for (int k =0; k < gridDimClamp[2]; ++k)
+			{
+				if (k >= bId[2][0] && k <= bId[2][1])
+					continue;
+				else
+					depth[2] = min(k-bId[2][0],bId[2][1]-k) * cellSize[2];
+
+				float d = min(min(depth[0], depth[1]), depth[2]);
+				//grid->grids[i][j][k]->collision_sdf= d;
+			}
+		}
+	}
 }
 
 void MpmCore::create_grid()
@@ -541,7 +595,7 @@ void MpmCore::create_grid()
 	float radius=0.017f;
 	Vector3f size(radius, radius, radius);
 
-	grid=new GridField(size, min, dimensions);
+	grid=new GridField(size, min, dimensions,10);
 
 	//set sdf for box
 	for(int i=-100;i<=100;i++)
@@ -551,6 +605,37 @@ void MpmCore::create_grid()
 				float dis=( 90 - max( max(abs(i), abs(j)), abs(k) ) )*radius;
 				grid->grids[i+100][j+100][k+100]->collision_sdf=-dis;
 			}
+}
+
+void MpmCore::createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame)
+{
+	float pmass=0.0001;
+	Vector3f init_velocity(-100.0f, -100.0f, 0);
+	Vector3i gridDim = grid->grid_division;
+	for (int i =0; i < gridDim[0]; ++i)
+	{
+		for (int j = 0; j < gridDim[1]; ++j)
+		{
+			for (int k = 0; k < gridDim[2]; ++k)
+			{
+				Vector3f pos = grid->grid_min + grid->grid_size.cwiseProduct(Vector3f(i,j,k));
+				if ((pos - center).squaredNorm() <= radius * radius)
+				{
+					for (int ithP = 0; ithP < nParticlePerCell; ++ithP)
+					{
+						Vector3f jitter(rand(), rand(), rand());
+						jitter /= float(RAND_MAX);
+						jitter = jitter.cwiseProduct(grid->grid_size);
+						Vector3f posJittered = pos + jitter;
+						particles.push_back(new Particle(particles.size(), posJittered, init_velocity, pmass));
+					}
+				}
+			}
+		}
+	}
+	
+	m_recorder.init(ithFrame);
+	m_recorder.addStatus(ithFrame, MpmStatus(particles));
 }
 
 void MpmCore::create_snow_ball()
@@ -589,16 +674,21 @@ void MpmCore::create_snow_ball()
 	}
 }
 
-bool MpmCore::init(int ithFrame)
+bool MpmCore::init(const Vector3f& gridMin,
+				   const Vector3f& gridMax,
+				   const Vector3f& gridCellSize,
+				   int gridBoundary,
+				   int ithFrame)
 {
 	clear();
 
 	ctrl_params.setting_1();
 
-	create_snow_ball();
+	// create_snow_ball();
+	// create_grid();
 
-	create_grid();
-
+	createGrid(gridMin, gridMax, gridCellSize, gridBoundary);
+	
 	m_recorder.init(ithFrame);
 	m_recorder.addStatus(ithFrame, MpmStatus(particles));
 	return true;

@@ -134,6 +134,7 @@
       <AdditionalIncludeDirectories>D:\Program Files\Autodesk\Maya2016\include;I:\Programs\autodesk\snow\project\openvdb_apple\build\OpenVDB\include;I:\Programs\autodesk\snow\project\openvdb_apple\build\glew-1.11.0\include;I:\Programs\autodesk\snow\project\openvdb_apple\build\boost_1_59_0;I:\Programs\autodesk\snow\project\openvdb_apple\build\OpenEXR\include;I:\Programs\autodesk\snow\project\openvdb_apple\build\IlmBase\include;I:\Programs\autodesk\snow\project\demo\Eigen\include\eigen3;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>-Zm300 %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -143,9 +144,11 @@
       <AdditionalLibraryDirectories>D:\Program Files\Autodesk\Maya2016\lib;I:\Programs\autodesk\snow\project\openvdb_apple\build\OpenVDB\lib;I:\Programs\autodesk\snow\project\openvdb_apple\build\glew-1.11.0\lib\Release\x64\;I:\Programs\autodesk\snow\project\openvdb_apple\build\boost_1_59_0\lib64-msvc-11.0;I:\Programs\autodesk\snow\project\openvdb_apple\build\zlib\lib;I:\Programs\autodesk\snow\project\openvdb_apple\build\glfw\lib-vc2012;I:\Programs\autodesk\snow\project\openvdb_apple\build\IlmBase\lib;I:\Programs\autodesk\snow\project\openvdb_apple\build\OpenEXR\lib;I:\Programs\autodesk\snow\project\openvdb_apple\build\tbb45\lib\intel64\vc11;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>FOUNDATION.LIB;OPENMAYA.LIB;OPENMAYAANIM.LIB;OPENMAYAFX.LIB;OPENMAYAUI.LIB;OPENMAYARENDER.LIB;GLEW32.LIB;OPENVDB.LIB;opengl32.lib;glu32.lib;glfw3.lib;Half.lib;IlmImf.lib;zlib.lib;boost_system-vc110-mt-1_59.lib;boost_thread-vc110-mt-1_59.lib;boost_iostreams-vc110-mt-1_59.lib;tbb.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin %(AdditionalOptions)</AdditionalOptions>
+      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\globals.cpp" />
     <ClCompile Include="..\MMPSolver_Apple.cc" />
     <ClCompile Include="..\MpmCore.cpp" />
     <ClCompile Include="..\MpmSimulateCmd.cpp" />
@@ -168,6 +171,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\globals.h" />
     <ClInclude Include="..\MMPSolver_Apple.h" />
     <ClInclude Include="..\mpmCore.h" />
     <ClInclude Include="..\MpmSimulateCmd.h" />

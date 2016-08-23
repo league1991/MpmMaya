@@ -22,15 +22,16 @@ struct GridField
 {
 	boost::multi_array<GridNode*,3> grids;
 	Vector3f grid_size;//interval grid_dims
-	Vector3f grid_min;
+	Vector3f grid_min, grid_max;
 	Vector3i grid_division;//int
+	int		 boundary;
 
 	GridField();
 	~GridField();
 
 	void clear();
 
-	GridField(Vector3f& grid_size, Vector3f& grid_min, Vector3i& grid_division);
+	GridField(const Vector3f& grid_size, const Vector3f& grid_min, const Vector3i& grid_division, int boundary);
 };
 
 struct control_parameters
@@ -74,7 +75,14 @@ public:
 	MpmCore();
 	~MpmCore();
 
-	bool	init(int ithFrame = 0);
+	bool	init(	const Vector3f& gridMin,
+					const Vector3f& gridMax,
+					const Vector3f& gridCellSize,
+					int gridBoundary = 2,
+					int ithFrame = 0);
+
+	void	createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
+
 	bool	for_each_frame(int ithFrame);
 
 	const vector<Particle*>& getParticle();
@@ -82,10 +90,11 @@ public:
 
 	StatusRecorder&		getRecorder();
 private:
-	control_parameters	ctrl_params;	
-	GridField*			grid;
+	control_parameters	ctrl_params;
 	vector<Particle*>	particles;
 	StatusRecorder      m_recorder;
+
+	GridField*			grid;
 
 	bool inGrid(Vector3i& index, Vector3i& grid_division);
 
@@ -139,7 +148,7 @@ private:
 
 	// init functions
 	void create_grid();
+	void createGrid(const Vector3f& gridMin, const Vector3f& gridMax, const Vector3f& gridCellSize, int boundary = 2);
 
 	void create_snow_ball();
-
 };

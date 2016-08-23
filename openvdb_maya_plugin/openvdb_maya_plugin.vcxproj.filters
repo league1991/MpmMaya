@@ -65,6 +65,9 @@
     <ClCompile Include="..\StatusRecorder.cpp">
       <Filter>MPM</Filter>
     </ClCompile>
+    <ClCompile Include="..\globals.cpp">
+      <Filter>MPM</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\MMPSolver_Apple.h">
@@ -117,6 +120,9 @@
       <Filter>MPM</Filter>
     </ClInclude>
     <ClInclude Include="..\StatusRecorder.h">
+      <Filter>MPM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\globals.h">
       <Filter>MPM</Filter>
     </ClInclude>
   </ItemGroup>

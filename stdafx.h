@@ -57,7 +57,8 @@ typedef Eigen::Vector3i	Vector3i;
 #include <maya/MFnPlugin.h>
 #include <maya/MFnPluginData.h>
 #include <maya/MFnStringData.h>
-
+#include <maya/MFnMatrixAttribute.h>
+#include <maya/MFnCompoundAttribute.h>
 
 #undef isnan
 
@@ -73,6 +74,7 @@ typedef Eigen::Vector3i	Vector3i;
 #include "OpenVDBVisualizeNode.h"
 #include "OpenVDBWriteNode.h"
 
+#include "globals.h"
 #include "Particle.h"
 #include "StatusRecorder.h"
 #include "mpmCore.h"

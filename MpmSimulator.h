@@ -27,5 +27,17 @@ private:
 	int					getCurFrame();
 	MBoundingBox		m_box;
 	MpmCore				m_core;
+
+	static MObject		s_boxMin;			// 
+	static MObject		s_boxMax;
+	static MObject		s_cellSize;
+	static MObject		s_nParticlePerCell;
+	static MObject		s_boundary;
+
+	static const char*  s_boxMinName[2];
+	static const char*	s_boxMaxName[2];
+	static const char*  s_cellSizeName[2];
+	static const char*	s_nParticlePerCellName[2];
+	static const char*  s_boundaryName[2];
 };
 
