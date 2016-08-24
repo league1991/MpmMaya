@@ -1,0 +1,14 @@
+*.ipch
+*.opensdf
+*.sdf
+*.suo
+*.tlog
+*.log
+*.obj
+*.pdb
+*.pch
+*.lastbuildstate
+*.filters
+*.vcxproj
+*.idb
+*.unsuccessfulbuild

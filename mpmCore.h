@@ -112,11 +112,7 @@ private:
 
 	Vector3f weight_gradientF(Vector3f& d_xp);
 
-	void fromCinderToEigenMatrix33(Matrix3f& from, Eigen::Matrix3f& to);
-
-	void fromEigenToCinderMatrix33(Eigen::Matrix3f& from, Matrix3f& to);
-
-	Matrix3f cauchy_stress(Matrix3f& Fe, Matrix3f& Fp);
+	Matrix3f cauchy_stress(Matrix3f& Fe, Matrix3f& Fp, float particle_volume);
 
 	//for 1st frame only. Compute particles volume and velocity
 	void init_particle_volume_velocity();
@@ -155,4 +151,5 @@ private:
 	void createGrid(const Vector3f& gridMin, const Vector3f& gridMax, const Vector3f& gridCellSize, int boundary = 2);
 
 	void create_snow_ball();
+	void create_snow_ball_2();
 };
