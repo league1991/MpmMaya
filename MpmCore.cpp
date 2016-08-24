@@ -91,11 +91,6 @@ Vector3f MpmCore::weight_gradientF( Vector3f& d_xp )
 
 Matrix3f MpmCore::cauchy_stress( Matrix3f& Fe, Matrix3f& Fp, float particle_volume )
 {
-	Eigen::Matrix3f Fe_e;
-	Eigen::Matrix3f Fp_e;
-	fromCinderToEigenMatrix33(Fe, Fe_e);
-	fromCinderToEigenMatrix33(Fp, Fp_e);
-
 	float det_fe=Fe.fullPivLu().determinant();
 	float det_fp=Fp.fullPivLu().determinant();
 
