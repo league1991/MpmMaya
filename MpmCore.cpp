@@ -89,23 +89,7 @@ Vector3f MpmCore::weight_gradientF( Vector3f& d_xp )
 		dNX_bsplineslope(d_xp[2])*NX_bspline(d_xp[0])*NX_bspline(d_xp[1]));
 }
 
-void MpmCore::fromCinderToEigenMatrix33( Matrix3f& from, Eigen::Matrix3f& to )
-{
-	for(int i=0;i<3;i++)
-		for(int j=0;j<3;j++)
-		{
-			to(i,j)=from(i,j);
-		}
-}
-
-void MpmCore::fromEigenToCinderMatrix33( Eigen::Matrix3f& from, Matrix3f& to )
-{
-	for(int i=0;i<3;i++)
-		for(int j=0;j<3;j++)
-			to(i,j)=from(j,i);
-}
-
-Matrix3f MpmCore::cauchy_stress( Matrix3f& Fe, Matrix3f& Fp )
+Matrix3f MpmCore::cauchy_stress( Matrix3f& Fe, Matrix3f& Fp, float particle_volume )
 {
 	Eigen::Matrix3f Fe_e;
 	Eigen::Matrix3f Fp_e;
@@ -120,17 +104,14 @@ Matrix3f MpmCore::cauchy_stress( Matrix3f& Fe, Matrix3f& Fp )
 	float lambda=exp(ctrl_params.hardening*(1-det_fp))*ctrl_params.lambda;
 
 	//polar decomposition FE=RE SE
-	Eigen::JacobiSVD<Eigen::Matrix3f> svd(Fe_e, Eigen::ComputeFullU| Eigen::ComputeFullV);
-	Eigen::Matrix3f Re_e=svd.matrixU()*svd.matrixV().transpose();
-	Matrix3f Re;
-	fromEigenToCinderMatrix33(Re_e, Re);
+	Eigen::JacobiSVD<Eigen::Matrix3f> svd(Fe, Eigen::ComputeFullU| Eigen::ComputeFullV);
+	Eigen::Matrix3f Re=svd.matrixU()*svd.matrixV().transpose();
 
+	Matrix3f I;
+	I.setIdentity();
 	//???? dx of fomular 1
-	float sv = lambda*det_fe*(det_fe-1);
-	Matrix3f second;
-	second.setConstant(sv);
 	//return (Fe-Re)*Fe.transpose()*2*miu + Matrix3f(lambda*det_fe*(det_fe-1));
-	return (Fe-Re)*Fe.transpose()*2*miu + second;
+	return ((Fe-Re)*Fe.transpose()*2*miu + I*(lambda*det_fe*(det_fe-1)))*particle_volume*-1;
 }
 
 void MpmCore::init_particle_volume_velocity()
@@ -209,7 +190,7 @@ void MpmCore::from_particles_to_grid()
 		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
 		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
 
-		Matrix3f cauchyStress=cauchy_stress(particles[pit]->Fe, particles[pit]->Fp)*particles[pit]->volume*-1;
+		Matrix3f cauchyStress=cauchy_stress(particles[pit]->Fe, particles[pit]->Fp, particles[pit]->volume);
 		for(int z=-2; z<=2;z++)
 		{
 			for(int y=-2; y<=2;y++)
@@ -325,10 +306,9 @@ void MpmCore::solve_grid_collision()
 			{
 				if(!grid->grids[x][y][z]->active)
 					continue;
-				Vector3f new_grid=(grid->grids[x][y][z]->velocity_new*ctrl_params.deltaT).cwiseQuotient(grid->grid_size);
-				new_grid+=Vector3f(x,y,z);
+				Vector3f index(x,y,z);
 				Vector3f sdf_normal;
-				if(getSDFNormal_box(new_grid,sdf_normal))
+				if(getSDFNormal(index,sdf_normal))
 				{
 					//fs<<x<<","<<y<<","<<z<<","<<sdf_normal[0]<<","<<sdf_normal[1]<<","<<sdf_normal[2]<<endl;
 					Vector3f updated_v;
@@ -353,13 +333,14 @@ void MpmCore::compute_deformation_gradient_F()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
+		if(!particles[pit]->isValid)
+			continue;
 		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
 		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
 
 		Matrix3f velocity_gradient;
 		velocity_gradient.setZero();
-		Eigen::Matrix3f velocity_gradient_E;
-		fromCinderToEigenMatrix33(velocity_gradient,velocity_gradient_E);
+
 		for(int z=-2; z<=2;z++)
 		{
 			for(int y=-2; y<=2;y++)
@@ -372,21 +353,16 @@ void MpmCore::compute_deformation_gradient_F()
 						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
 						Vector3f gradient_weight=weight_gradientF(xp);
 						//fomular in step 4
-						velocity_gradient_E+=Eigen::Vector3f(grid->grids[index[0]][index[1]][index[2]]->velocity_new[0],grid->grids[index[0]][index[1]][index[2]]->velocity_new[1],grid->grids[index[0]][index[1]][index[2]]->velocity_new[2])*
+						velocity_gradient+=Eigen::Vector3f(grid->grids[index[0]][index[1]][index[2]]->velocity_new[0],grid->grids[index[0]][index[1]][index[2]]->velocity_new[1],grid->grids[index[0]][index[1]][index[2]]->velocity_new[2])*
 							Eigen::Vector3f(gradient_weight[0],gradient_weight[1],gradient_weight[2]).transpose();
 					}
 				}
 			}
 		}
 
-		Eigen::Matrix3f Fe_p_E;
-		fromCinderToEigenMatrix33(particles[pit]->Fe,Fe_p_E);
-		Eigen::Matrix3f Fp_p_E;
-		fromCinderToEigenMatrix33(particles[pit]->Fp,Fp_p_E);
-
 		//fomular 11
-		Eigen::Matrix3f Fe_new=(Eigen::Matrix3f::Identity()+velocity_gradient_E*ctrl_params.deltaT)*Fe_p_E;
-		Eigen::Matrix3f F_new=Fe_new*Fp_p_E;
+		Eigen::Matrix3f Fe_new=(Eigen::Matrix3f::Identity()+velocity_gradient*ctrl_params.deltaT)*particles[pit]->Fe;
+		Eigen::Matrix3f F_new=Fe_new*particles[pit]->Fp;
 		Eigen::JacobiSVD<Eigen::Matrix3f> svd(Fe_new, Eigen::ComputeFullV | Eigen::ComputeFullU);
 
 		Matrix3f clamped_S;
@@ -401,18 +377,12 @@ void MpmCore::compute_deformation_gradient_F()
 		clamped_S_inv(1,1)=1/clamped_S(1,1);
 		clamped_S_inv(2,2)=1/clamped_S(2,2);
 
-		Matrix3f U;
-		Eigen::Matrix3f U_E=svd.matrixU();
-		fromEigenToCinderMatrix33(U_E, U);
-		Matrix3f V;
-		Eigen::Matrix3f V_E=svd.matrixV();
-		fromEigenToCinderMatrix33(V_E, V);
-		Matrix3f F_new_cinder;
-		fromEigenToCinderMatrix33(F_new, F_new_cinder);
+		Eigen::Matrix3f U=svd.matrixU();
+		Eigen::Matrix3f V=svd.matrixV();
 
 		//fomular 12
 		particles[pit]->Fe=U*clamped_S*V.transpose();
-		particles[pit]->Fp=V*clamped_S_inv*U.transpose()*F_new_cinder;
+		particles[pit]->Fp=V*clamped_S_inv*U.transpose()*F_new;
 	}
 }
 
@@ -420,6 +390,8 @@ void MpmCore::from_grid_to_particle()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
+		if(!particles[pit]->isValid)
+			continue;
 		//Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_center,grid->grid_size);
 		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
 		Vector3f v_PIC(0,0,0);
@@ -458,37 +430,49 @@ void MpmCore::solve_particle_collision()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
+		if(!particles[pit]->isValid)
+			continue;
 		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
 		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
 		Vector3f p_grid_index_i_new=(particles[pit]->position+particles[pit]->velocity*ctrl_params.deltaT-grid->grid_min).cwiseQuotient(grid->grid_size);
+		Vector3i index_check_1=p_grid_index_i-Vector3i(1,1,1);
+		Vector3i index_check_2=p_grid_index_i+Vector3i(1,1,1);
+		if(!inGrid(p_grid_index_i,grid->grid_division)||!inGrid(index_check_1,grid->grid_division)||!inGrid(index_check_2,grid->grid_division))
+		{
+			particles[pit]->isValid=false;
+			continue;
+		}
 
 		float sdf=0;
 		Vector3f sdf_normal;
 		Vector3f velocity_collider(0,0,0);
-		/*for(int z=0; z<=1;z++)
+		for(int z=p_grid_index_i.z(); z<=p_grid_index_i.z()+1;z++)
 		{
-		for(int y=0; y<=1;y++)
-		{
-		for(int x=0; x<=1;x++)
-		{
-		float weight_sdf=fabs( ( p_grid_index_f[2]-(p_grid_index_i[2]-z) )*
-		( p_grid_index_f[1]-(p_grid_index_i[1]-y) )*
-		( p_grid_index_f[0]-(p_grid_index_i[0]-x) ) );
-		Vector3i index=p_grid_index_i+Vector3i(x,y,z);
-		if(inGrid(index, grid->grid_division))
-		{
-		Vector3f temp_normal;
-		getSDFNormal(Vector3f(index[0],index[1],index[2]),temp_normal);
-		sdf_normal+=temp_normal*weight_sdf;
-		sdf+=grid->grids[index[0]][index[1]][index[2]]->collision_sdf*weight_sdf;
-		velocity_collider+=grid->grids[index[0]][index[1]][index[2]]->collision_velocity*weight_sdf;
+			for(int y=p_grid_index_i.y(); y<=p_grid_index_i.y()+1;y++)
+			{
+				for(int x=p_grid_index_i.x(); x<=p_grid_index_i.x()+1;x++)
+				{
+					float weight_sdf=fabs( ( p_grid_index_f.z()-z)*
+												   ( p_grid_index_f.y()-y)*
+												   ( p_grid_index_f.x()-x) );
+					Vector3i index(x,y,z);
+					Vector3i index_check_1=Vector3i(x-1,y-1,z-1);
+					Vector3i index_check_2=Vector3i(x+1,y+1,z+1);
+					if(inGrid(index, grid->grid_division)&&inGrid(index_check_1,grid->grid_division)&&inGrid(index_check_2,grid->grid_division))
+					{
+					Vector3f temp_normal;
+					getSDFNormal(Vector3f(index[0],index[1],index[2]),temp_normal);
+					sdf_normal+=temp_normal*weight_sdf;
+					sdf+=grid->grids[index[0]][index[1]][index[2]]->collision_sdf*weight_sdf;
+					velocity_collider+=grid->grids[index[0]][index[1]][index[2]]->collision_velocity*weight_sdf;
+					}
+				}
+			}
 		}
-		}
-		}
-		}*/
 
 
-		if(getSDFNormal_box(p_grid_index_i_new,sdf_normal))
+		//if(getSDFNormal_box(p_grid_index_i_new,sdf_normal))
+		if(sdf>0)
 		{
 			Vector3f updated_v;
 			sdf_normal.normalize();
@@ -667,6 +651,67 @@ void MpmCore::create_snow_ball()
 				if ((pos - snow_ball_center).norm() < sphereRadius) 
 				{
 					particles.push_back(new Particle(pid,pos, init_velocity, pmass));
+					pid++;
+				}
+			}
+		}
+	}
+}
+
+void MpmCore::create_snow_ball_2()
+{
+	Vector3f snow_ball_center_1(0.5f, 1.0f, 0.f);
+	Vector3f snow_ball_center_2(-0.5f, 1.0f, 0.f);
+	Vector3i snow_ball_dimensions(40, 40, 40);
+	float pmass=0.0001;
+	Vector3f init_velocity_1(-10.f, 0.0f, 0);
+	Vector3f init_velocity_2(10.f, 0.0f, 0);
+	float radius=0.017f;
+
+	particles.clear();
+
+	int pid=0;
+	float sphereRadius = radius * (float)snow_ball_dimensions.x() / 2.0f;
+	for (int x = -snow_ball_dimensions.x()/2; x <= snow_ball_dimensions.x()/2; x++) 
+	{
+		for (int y = -snow_ball_dimensions.y()/2; y <= snow_ball_dimensions.y()/2; y++) 
+		{
+			for (int z = -snow_ball_dimensions.z()/2; z <= snow_ball_dimensions.z()/2; z++) 
+			{
+				// generate a jittered point
+				float r1 = 0.001f + static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+				float r2 = 0.001f + static_cast <float>(rand()) / static_cast <float> (RAND_MAX);
+				float r3 = 0.001f + static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+				Vector3f jitter = Vector3f(r1, r2, r3) * radius;
+
+				Vector3f pos = snow_ball_center_1 + Vector3f(float(x), float(y), float(z)) * radius + jitter;
+				// see if pos is inside the sphere
+				if ((pos - snow_ball_center_1).norm() < sphereRadius) 
+				{
+					particles.push_back(new Particle(pid,pos, init_velocity_1, pmass));
+					pid++;
+				}
+			}
+		}
+	}
+
+	for (int x = -snow_ball_dimensions.x()/2; x <= snow_ball_dimensions.x()/2; x++) 
+	{
+		for (int y = -snow_ball_dimensions.y()/2; y <= snow_ball_dimensions.y()/2; y++) 
+		{
+			for (int z = -snow_ball_dimensions.z()/2; z <= snow_ball_dimensions.z()/2; z++) 
+			{
+				// generate a jittered point
+				float r1 = 0.001f + static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+				float r2 = 0.001f + static_cast <float>(rand()) / static_cast <float> (RAND_MAX);
+				float r3 = 0.001f + static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+				Vector3f jitter = Vector3f(r1, r2, r3) * radius;
+
+				Vector3f pos = snow_ball_center_2 + Vector3f(float(x), float(y), float(z)) * radius + jitter;
+				// see if pos is inside the sphere
+				if ((pos - snow_ball_center_2).norm() < sphereRadius) 
+				{
+					particles.push_back(new Particle(pid,pos, init_velocity_2, pmass));
 					pid++;
 				}
 			}

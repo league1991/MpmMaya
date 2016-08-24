@@ -13,6 +13,8 @@ struct Particle
 	float pmass;
 	int pid;
 
+	bool isValid;
+
 	Vector3f getGridIdx(Vector3f& grid_min,Vector3f& grid_size)
 	{
 		return (position-grid_min).cwiseQuotient(grid_size);
@@ -23,7 +25,9 @@ struct Particle
 	}
 
 	Particle()
-	{}
+	{
+		isValid=true;
+	}
 
 	Particle(int pid, Vector3f& position, Vector3f& velocity, float pmass);
 };
