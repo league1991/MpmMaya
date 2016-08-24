@@ -36,6 +36,8 @@ struct GridField
 
 struct control_parameters
 {
+	float particleMass;
+
 	//ctrl param
 	float init_youngs_modulus;
 	float poissons_ratio;
@@ -67,6 +69,7 @@ struct control_parameters
 	int frame;
 
 	void setting_1();
+	void initLame();
 };
 
 class MpmCore
@@ -81,6 +84,7 @@ public:
 					int gridBoundary = 2,
 					int ithFrame = 0);
 
+	void	setConfigure(float young, float possion, float hardening, float criticalComp, float criticalStretch, float friction, float flipPercent, float deltaT, float particleMass, const Vector3f& gravity);
 	void	createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
 
 	bool	for_each_frame(int ithFrame);

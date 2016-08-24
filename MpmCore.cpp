@@ -609,7 +609,7 @@ void MpmCore::create_grid()
 
 void MpmCore::createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame)
 {
-	float pmass=0.0001;
+	float pmass= ctrl_params.particleMass;
 	Vector3f init_velocity(-100.0f, -100.0f, 0);
 	Vector3i gridDim = grid->grid_division;
 	for (int i =0; i < gridDim[0]; ++i)
@@ -747,8 +747,61 @@ StatusRecorder& MpmCore::getRecorder()
 	return m_recorder;
 }
 
+
+void MpmCore::setConfigure(float young,
+						   float possion,
+						   float hardening,
+						   float criticalComp,
+						   float criticalStretch,
+						   float friction,
+						   float flipPercent,
+						   float deltaT,
+						   float particleMass,
+						   const Vector3f& gravity)
+{
+	ctrl_params.init_youngs_modulus = young;
+	ctrl_params.poissons_ratio = possion;
+	ctrl_params.hardening = hardening;
+	ctrl_params.critical_compression = criticalComp;
+	ctrl_params.critical_stretch = criticalStretch;
+	ctrl_params.frictionCoeff = friction;
+	ctrl_params.flip_percent = flipPercent;
+	ctrl_params.deltaT = deltaT;
+	ctrl_params.frame = 0;
+	ctrl_params.gravity = gravity;
+	ctrl_params.particleMass = particleMass;
+	ctrl_params.initLame();
+	// youngs modulus:	54701.988281 // 
+	// poissons ratio:	0.187086 // 
+	// Lame coef mu:	23040.447266 // 
+	// Lame coef lambda:	13775.505859 // 
+	// hardening factor:	14.086093 // 
+	// critical compression:	0.023291 // 
+	// critical stretch:	0.007258 // 
+	// friction coef:	1.268212 // 
+	// flip percent:	0.869536 // 
+	// time step:	0.037417 // 
+	// gravity:	(0.000000,-9.800000,0.000000) // 
+
+	PRINT_F("================== physical parameters ==================");
+	PRINT_F("youngs modulus:\t\t%f", ctrl_params.init_youngs_modulus);
+	PRINT_F("poissons ratio:\t\t%f", ctrl_params.poissons_ratio);
+	PRINT_F("Lame coef mu:\t\t%f", ctrl_params.miu);
+	PRINT_F("Lame coef lambda:\t%f", ctrl_params.lambda);
+	PRINT_F("hardening factor:\t%f", ctrl_params.hardening);
+	PRINT_F("critical compression:%f", ctrl_params.critical_compression);
+	PRINT_F("critical stretch:\t%f", ctrl_params.critical_stretch);
+	PRINT_F("friction coef:\t\t%f", ctrl_params.frictionCoeff);
+	PRINT_F("flip percent:\t\t%f", ctrl_params.flip_percent);
+	PRINT_F("time step:\t\t\t%f", ctrl_params.deltaT);
+	PRINT_F("gravity:\t\t\t\t(%f,%f,%f)", ctrl_params.gravity[0],ctrl_params.gravity[1],ctrl_params.gravity[2]);
+	PRINT_F("=========================================================");
+
+}
+
 void control_parameters::setting_1()
 {
+	particleMass = 0.0001;
 	deltaT=5e-4f;
 	frame=0;
 
@@ -766,6 +819,12 @@ void control_parameters::setting_1()
 	flip_percent=0.95f;
 
 	gravity=Vector3f(0, -9.8f, 0);
+}
+
+void control_parameters::initLame()
+{
+	miu=init_youngs_modulus/(2*(1+poissons_ratio));
+	lambda=(poissons_ratio*init_youngs_modulus)/((1+poissons_ratio)*(1-2*poissons_ratio));
 }
 
 GridNode::GridNode()

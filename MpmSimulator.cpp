@@ -10,13 +10,36 @@ MObject MpmSimulator::s_boxMax;
 MObject	MpmSimulator::s_cellSize;
 MObject MpmSimulator::s_nParticlePerCell;
 MObject	MpmSimulator::s_boundary;
+
+MObject	MpmSimulator::s_particleMass;
+MObject	MpmSimulator::s_youngs;
+MObject	MpmSimulator::s_poisson;
+MObject	MpmSimulator::s_hardening;
+MObject	MpmSimulator::s_criticalCompression;
+MObject	MpmSimulator::s_criticalStretch;
+MObject	MpmSimulator::s_friction;
+MObject	MpmSimulator::s_flip;
+MObject	MpmSimulator::s_gravity;
+MObject	MpmSimulator::s_deltaT;
+MObject MpmSimulator::s_initParticle;
+
 const char* MpmSimulator::s_boxMinName[2]={"boxMin","bMin"};
 const char* MpmSimulator::s_boxMaxName[2]={"boxMax","bMax"};
 const char* MpmSimulator::s_cellSizeName[2]={"cellSize","cSize"};
 const char* MpmSimulator::s_nParticlePerCellName[2]={"particlePerCell", "ppc"};
 const char* MpmSimulator::s_boundaryName[2]={"boundary","bnd"};
 
-
+const char*	MpmSimulator::s_particleMassName[2]={"particleMass","pmass"};
+const char*	MpmSimulator::s_youngsName[2]={"youngsModulus","ym"};
+const char*	MpmSimulator::s_poissonName[2]={"possionRatio","pr"};
+const char*	MpmSimulator::s_hardeningName[2]={"hardeningFactor","hf"};
+const char*	MpmSimulator::s_criticalCompressionName[2]={"criticalCompression","cc"};
+const char*	MpmSimulator::s_criticalStretchName[2]={"criticalStretch","cs"};
+const char*	MpmSimulator::s_frictionName[2]={"friction","fr"};
+const char*	MpmSimulator::s_flipName[2]={"flipPercent","fp"};
+const char*	MpmSimulator::s_gravityName[2]={"gravity","gr"};
+const char*	MpmSimulator::s_deltaTName[2]={"deltaTime","dt"};
+const char* MpmSimulator::s_initParticleName[2]={"initParticle","iptl"};
 
 MpmSimulator::MpmSimulator(void)
 {
@@ -212,19 +235,19 @@ MStatus MpmSimulator::initialize()
 	MFnCompoundAttribute cAttr;
 
 	{
-		s_boxMin = nAttr.create(s_boxMinName[0], s_boxMinName[1], MFnNumericData::k3Float, -10, &s);
+		s_boxMin = nAttr.create(s_boxMinName[0], s_boxMinName[1], MFnNumericData::k3Float, -2, &s);
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
 		s = addAttribute(s_boxMin);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_boxMax = nAttr.create(s_boxMaxName[0], s_boxMaxName[1], MFnNumericData::k3Float, 10, &s);
+		s_boxMax = nAttr.create(s_boxMaxName[0], s_boxMaxName[1], MFnNumericData::k3Float, 2, &s);
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
 		s = addAttribute(s_boxMax);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_cellSize = nAttr.create(s_cellSizeName[0], s_cellSizeName[1], MFnNumericData::k3Float, 0.5, &s);
+		s_cellSize = nAttr.create(s_cellSizeName[0], s_cellSizeName[1], MFnNumericData::k3Float, 0.1, &s);
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
 		nAttr.setMin(0.01);
@@ -247,6 +270,94 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_boundary);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
+
+	{
+		s_particleMass = nAttr.create(s_particleMassName[0], s_particleMassName[1], MFnNumericData::kFloat, 0.0001, &s);
+		nAttr.setMin(1e-5);
+		nAttr.setMax(1e12);
+		nAttr.setSoftMin(1e-4);
+		nAttr.setSoftMax(1e-3);
+		s = addAttribute(s_particleMass);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_youngs = nAttr.create(s_youngsName[0], s_youngsName[1], MFnNumericData::kFloat, 4.8e4, &s);
+		nAttr.setMin(1e-5);
+		nAttr.setMax(1e12);
+		nAttr.setSoftMin(1e4);
+		nAttr.setSoftMax(10e4);
+		s = addAttribute(s_youngs);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_poisson = nAttr.create(s_poissonName[0], s_poissonName[1], MFnNumericData::kFloat, 0.2, &s);
+		nAttr.setMin(1e-3);
+		nAttr.setMax(1e2);
+		nAttr.setSoftMin(0.05);
+		nAttr.setSoftMax(0.5);
+		s = addAttribute(s_poisson);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_hardening = nAttr.create(s_hardeningName[0], s_hardeningName[1], MFnNumericData::kFloat, 15.f, &s);
+		nAttr.setMin(0);
+		nAttr.setMax(1e4);
+		nAttr.setSoftMin(3);
+		nAttr.setSoftMax(30);
+		s = addAttribute(s_hardening);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_criticalCompression = nAttr.create(s_criticalCompressionName[0], s_criticalCompressionName[1], MFnNumericData::kFloat, 0.019, &s);
+		nAttr.setMin(0);
+		nAttr.setMax(10);
+		nAttr.setSoftMin(0.001);
+		nAttr.setSoftMax(0.1);
+		s = addAttribute(s_criticalCompression);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_criticalStretch = nAttr.create(s_criticalStretchName[0], s_criticalStretchName[1], MFnNumericData::kFloat, 0.0075, &s);
+		nAttr.setMin(0);
+		nAttr.setMax(10);
+		nAttr.setSoftMin(0.001);
+		nAttr.setSoftMax(0.01);
+		s = addAttribute(s_criticalStretch);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_friction = nAttr.create(s_frictionName[0], s_frictionName[1], MFnNumericData::kFloat, 1.f, &s);
+		nAttr.setMin(0);
+		nAttr.setMax(1e5);
+		nAttr.setSoftMin(0.1);
+		nAttr.setSoftMax(5.0);
+		s = addAttribute(s_friction);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_flip = nAttr.create(s_flipName[0], s_flipName[1], MFnNumericData::kFloat, 0.95, &s);
+		nAttr.setMin(0);
+		nAttr.setMax(10);
+		nAttr.setSoftMin(0.1);
+		nAttr.setSoftMax(1.5);
+		s = addAttribute(s_flip);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_gravity = nAttr.create(s_gravityName[0], s_gravityName[1], MFnNumericData::k3Float, 0, &s);
+		nAttr.setMin(-1e6);
+		nAttr.setMax(1e6);
+		s = addAttribute(s_gravity);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_deltaT = nAttr.create(s_deltaTName[0], s_deltaTName[1], MFnNumericData::kFloat, 1.0f/24.f, &s);
+		nAttr.setMin(1e-3);
+		nAttr.setMax(10);
+		nAttr.setSoftMin(0.01);
+		nAttr.setSoftMax(0.1);
+		s = addAttribute(s_deltaT);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+	}
+	{
+		s_initParticle = tAttr.create(s_initParticleName[0], s_initParticleName[1], OpenVDBData::id, MObject::kNullObj, &s);
+		tAttr.setReadable(false);
+		tAttr.setArray(true);
+		tAttr.setUsesArrayDataBuilder(true);
+		s = addAttribute(s_initParticle);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+	}
 	return s;
 }
 
@@ -258,6 +369,17 @@ bool MpmSimulator::initSolver()
 	MPlug cellSizePlug = Global::getPlug(this, s_cellSizeName[0]);
 	MPlug nParticlePlug = Global::getPlug(this, s_nParticlePerCellName[0]);
 	MPlug boundaryPlug = Global::getPlug(this, s_boundaryName[0]);
+
+	MPlug youngsPlug = Global::getPlug(this, s_youngsName[0]);
+	MPlug possionPlug = Global::getPlug(this, s_poissonName[0]);
+	MPlug hardenPlug = Global::getPlug(this, s_hardeningName[0]);
+	MPlug cCompPlug = Global::getPlug(this, s_criticalCompressionName[0]);
+	MPlug cStrePlug = Global::getPlug(this, s_criticalStretchName[0]);
+	MPlug frictionPlug = Global::getPlug(this, s_frictionName[0]);
+	MPlug flipPlug = Global::getPlug(this, s_flipName[0]);
+	MPlug gravityPlug = Global::getPlug(this, s_gravityName[0]);
+	MPlug deltaTPlug = Global::getPlug(this, s_deltaTName[0]);
+	MPlug particleMassPlug = Global::getPlug(this, s_particleMassName[0]);
 
 	MStatus s;
 	Vector3f gridMin, gridMax, cellSize;
@@ -273,6 +395,23 @@ bool MpmSimulator::initSolver()
 	if (!cellSize.norm())
 		return false;
 	bool res = m_core.init(gridMin.cwiseMin(gridMax), gridMax.cwiseMax(gridMin), cellSize.cwiseAbs(), boundary, frame);
+
+	Vector3f gravity;
+	s = Global::getFloat(gravityPlug, &gravity[0], 3);
+	CHECK_MSTATUS_AND_RETURN(s, false);
+	m_core.setConfigure(youngsPlug.asFloat(),
+						possionPlug.asFloat(),
+						hardenPlug.asFloat(),
+						cCompPlug.asFloat(),
+						cStrePlug.asFloat(),
+						frictionPlug.asFloat(),
+						flipPlug.asFloat(),
+						deltaTPlug.asFloat(),
+						particleMassPlug.asFloat(),
+						gravity);
+
+
+
 	m_core.createBall(Vector3f(0,0,0), 1, nParticle, frame);
 	if (res)
 	{
@@ -285,11 +424,19 @@ bool MpmSimulator::initSolver()
 	return res;
 }
 
+bool MpmSimulator::initParticle()
+{
+	MPlug initParticlePlug = Global::getPlug(this, s_initParticleName[0]);
+	return false;
+}
+
 bool MpmSimulator::stepSolver()
 {
 	int frame = getCurFrame();
 	return m_core.for_each_frame(frame);
 }
+
+
 
 
 
