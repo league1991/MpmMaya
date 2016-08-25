@@ -22,7 +22,7 @@ typedef Eigen::Vector3i	Vector3i;
 
 #include <openvdb/Platform.h>
 #include <openvdb/openvdb.h>
-#include <openvdb/Types.h> // compiler pragmas
+#include <openvdb/Types.h> 
 
 #include <maya/MIOStream.h>
 #include <maya/MString.h>

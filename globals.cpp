@@ -41,3 +41,23 @@ MStatus Global::getFloat( const MPlug& plug, float* buffer, int length)
 	}
 	return MS::kSuccess;
 }
+
+MStatus Global::getVDBData( MObject&matObj, OpenVDBData*& dat )
+{
+	MStatus s;
+	MFnPluginData matFn(matObj, &s);
+
+	CHECK_MSTATUS_AND_RETURN_IT(s);
+	if (s)
+	{
+		MFnPluginData* pData= (MFnPluginData*)matFn.data(&s);
+		if (pData && s)
+		{
+			dat = dynamic_cast<OpenVDBData*>(pData);
+			if (dat)
+				return s;
+		}
+	}
+	dat = NULL;
+	return s;
+}

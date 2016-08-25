@@ -36,6 +36,8 @@ struct GridField
 
 struct control_parameters
 {
+	float particleDensity;
+
 	//ctrl param
 	float init_youngs_modulus;
 	float poissons_ratio;
@@ -67,6 +69,7 @@ struct control_parameters
 	int frame;
 
 	void setting_1();
+	void initLame();
 };
 
 class MpmCore
@@ -81,12 +84,43 @@ public:
 					int gridBoundary = 2,
 					int ithFrame = 0);
 
+	void	setConfigure(float young, float possion, float hardening, float criticalComp, float criticalStretch, float friction, float flipPercent, float deltaT, float particleDensity, const Vector3f& gravity);
 	void	createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
 
 	bool	for_each_frame(int ithFrame);
 
 	const vector<Particle*>& getParticle();
 	void	getGridConfig(Vector3f& minPnt, Vector3f& cellSize, Vector3i& cellNum);
+
+	template<typename GridType, typename GridPtrType> 
+	bool	addParticleGrid(typename GridPtrType& pGrid, int nParticlePerCell = 1)
+	{
+		float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
+		float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
+		Vector3f init_velocity(-100.0f, -100.0f, 0);
+		GridType::ConstAccessor acc = openvdb::gridConstPtrCast<GridType>(pGrid)->getAccessor();
+		for (int i = 0; i < grid->grid_division[0]; ++i)
+		{
+			for (int j = 0; j < grid->grid_division[1]; ++j)
+			{
+				for (int k = 0; k < grid->grid_division[2]; ++k)
+				{
+					for (int p = 0; p < nParticlePerCell; ++p)
+					{
+						Vector3f jitter(rand(), rand(), rand());
+						jitter = jitter.cwiseProduct(grid->grid_size) / float(RAND_MAX);
+						Vector3f pos = grid->grid_min + grid->grid_size.cwiseProduct(Vector3f(i,j,k)) + jitter;
+						openvdb::tools::GridSampler<GridType::ConstAccessor, openvdb::tools::BoxSampler>
+							interpolator(acc, pGrid->transform());
+// 						GridType::ValueType val = interpolator.wsSample(openvdb::Vec3d(pos[0],pos[1],pos[2]));
+// 						if (val < 0)
+// 							particles.push_back(new Particle(particles.size(), pos, init_velocity, pmass));
+					}
+				}
+			}
+		}
+		return false;
+	}
 
 	StatusRecorder&		getRecorder();
 private:
@@ -119,7 +153,7 @@ private:
 	//step 3 4 compute grid force and update grid velocity
 	void compute_grid_velocity();
 
-	bool getSDFNormal(Vector3f& grid_idx, Vector3f& out_sdf_normal);
+	bool getSDFNormal(Vector3i& grid_idx, Vector3f& out_sdf_normal);
 
 	bool getSDFNormal_box(Vector3f& grid_idx_new, Vector3f& out_sdf_normal);
 
