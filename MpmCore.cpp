@@ -91,8 +91,8 @@ Vector3f MpmCore::weight_gradientF( Vector3f& d_xp )
 
 Matrix3f MpmCore::cauchy_stress( Matrix3f& Fe, Matrix3f& Fp, float particle_volume )
 {
-	float det_fe=Fe.fullPivLu().determinant();
-	float det_fp=Fp.fullPivLu().determinant();
+	float det_fe=Fe.determinant();
+	float det_fp=Fp.determinant();
 
 	//formula 2
 	float miu=exp(ctrl_params.hardening*(1-det_fp))*ctrl_params.miu;
@@ -147,13 +147,8 @@ void MpmCore::init_particle_volume_velocity()
 					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 					if(inGrid(index, grid->grid_division))
 					{
-						Vector3f temp1=particles[pit]->position;
-						Vector3f temp2=grid->grid_size.cwiseProduct(Vector3f(p_grid_index_i[0],p_grid_index_i[1],p_grid_index_i[2]))+grid->grid_min;
-						Vector3f temp3=temp1-temp2;
-						Vector3f temp4=temp3.cwiseQuotient(grid->grid_size);
 						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
 						float weight_p=weight(xp);
-						float temp5=grid->grids[index[0]][index[1]][index[2]]->mass;
 						density+=grid->grids[index[0]][index[1]][index[2]]->mass*weight_p/grid->grid_size[0]/grid->grid_size[1]/grid->grid_size[2];
 					}
 				}
@@ -182,6 +177,8 @@ void MpmCore::from_particles_to_grid()
 
 	for(int pit=0;pit<particles.size();pit++)
 	{
+		if(!particles[pit]->isValid)
+			continue;
 		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
 		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
 
@@ -241,8 +238,8 @@ void MpmCore::compute_grid_velocity()
 
 bool MpmCore::getSDFNormal( Vector3i& grid_idx, Vector3f& out_sdf_normal )
 {
-// 	if(grid->grids[grid_idx[0]][grid_idx[1]][grid_idx[2]]->collision_sdf<0)
-// 		return false;
+ 	if(grid->grids[grid_idx[0]][grid_idx[1]][grid_idx[2]]->collision_sdf<0)
+ 		return false;
 	out_sdf_normal[0]=grid->grids[grid_idx[0]-1][grid_idx[1]][grid_idx[2]]->collision_sdf-grid->grids[grid_idx[0]+1][grid_idx[1]][grid_idx[2]]->collision_sdf;
 	out_sdf_normal[1]=grid->grids[grid_idx[0]][grid_idx[1]-1][grid_idx[2]]->collision_sdf-grid->grids[grid_idx[0]][grid_idx[1]+1][grid_idx[2]]->collision_sdf;
 	out_sdf_normal[2]=grid->grids[grid_idx[0]][grid_idx[1]][grid_idx[2]-1]->collision_sdf-grid->grids[grid_idx[0]][grid_idx[1]][grid_idx[2]+1]->collision_sdf;
@@ -329,8 +326,6 @@ void MpmCore::compute_deformation_gradient_F()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		if(!particles[pit]->isValid)
-			continue;
 		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
 		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
 
@@ -349,8 +344,8 @@ void MpmCore::compute_deformation_gradient_F()
 						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
 						Vector3f gradient_weight=weight_gradientF(xp);
 						//fomular in step 4
-						velocity_gradient+=Eigen::Vector3f(grid->grids[index[0]][index[1]][index[2]]->velocity_new[0],grid->grids[index[0]][index[1]][index[2]]->velocity_new[1],grid->grids[index[0]][index[1]][index[2]]->velocity_new[2])*
-							Eigen::Vector3f(gradient_weight[0],gradient_weight[1],gradient_weight[2]).transpose();
+						velocity_gradient+=Eigen::Vector3f(grid->grids[index[0]][index[1]][index[2]]->velocity_new)*
+							Eigen::Vector3f(gradient_weight).transpose();
 					}
 				}
 			}
@@ -406,12 +401,6 @@ void MpmCore::from_grid_to_particle()
 						float weight_p=weight(xp);
 						v_PIC+=grid->grids[index[0]][index[1]][index[2]]->velocity_new*weight_p;
 						v_FLIP+=(grid->grids[index[0]][index[1]][index[2]]->velocity_new-grid->grids[index[0]][index[1]][index[2]]->velocity_old)*weight_p;
-						if(pit==0&&ctrl_params.frame>=1)
-						{
-							//fs<<"index:"<<index[0]<<" "<<index[1]<<" "<<index[2]<<endl;
-							//fs<<"vel_new:"<<grid->grids[index[0]][index[1]][index[2]]->velocity_new[0]<<" "<<grid->grids[index[0]][index[1]][index[2]]->velocity_new[1]<<" "<<grid->grids[index[0]][index[1]][index[2]]->velocity_new[2]<<endl;
-							//fs<<"vel_old:"<<grid->grids[index[0]][index[1]][index[2]]->velocity_old[0]<<" "<<grid->grids[index[0]][index[1]][index[2]]->velocity_old[1]<<" "<<grid->grids[index[0]][index[1]][index[2]]->velocity_old[2]<<endl;
-						}
 					}
 				}
 			}
@@ -724,10 +713,10 @@ bool MpmCore::init(const Vector3f& gridMin,
 
 	ctrl_params.setting_1();
 
-	// create_snow_ball();
-	// create_grid();
+	create_snow_ball_2();
+	create_grid();
 
-	createGrid(gridMin, gridMax, gridCellSize, gridBoundary);
+	//createGrid(gridMin, gridMax, gridCellSize, gridBoundary);
 	
 	m_recorder.init(ithFrame);
 	m_recorder.addStatus(ithFrame, MpmStatus(particles));

@@ -395,22 +395,7 @@ bool MpmSimulator::initSolver()
 	if (!cellSize.norm())
 		return false;
 	bool res = m_core.init(gridMin.cwiseMin(gridMax), gridMax.cwiseMax(gridMin), cellSize.cwiseAbs(), boundary, frame);
-
-	Vector3f gravity;
-	s = Global::getFloat(gravityPlug, &gravity[0], 3);
-	CHECK_MSTATUS_AND_RETURN(s, false);
-	m_core.setConfigure(youngsPlug.asFloat(),
-						possionPlug.asFloat(),
-						hardenPlug.asFloat(),
-						cCompPlug.asFloat(),
-						cStrePlug.asFloat(),
-						frictionPlug.asFloat(),
-						flipPlug.asFloat(),
-						deltaTPlug.asFloat(),
-						particleDensityPlug.asFloat(),
-						gravity);
-
-	m_core.createBall(Vector3f(0,0,0), 1, nParticle, frame);
+	//m_core.createBall(Vector3f(0,0,0), 1, nParticle, frame);
 	res &= initParticle();
 	if (res)
 	{
