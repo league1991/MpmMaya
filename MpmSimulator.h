@@ -26,6 +26,7 @@ private:
 	void				drawCell();
 	int					getCurFrame();
 	bool				initParticle();
+
 	MBoundingBox		m_box;
 	MpmCore				m_core;
 
@@ -36,7 +37,7 @@ private:
 	static MObject		s_boundary;
 
 	// physical param
-	static MObject		s_particleMass;
+	static MObject		s_particleDensity;
 	static MObject		s_youngs;
 	static MObject		s_poisson;
 	static MObject		s_hardening;
@@ -56,7 +57,7 @@ private:
 	static const char*	s_nParticlePerCellName[2];
 	static const char*  s_boundaryName[2];
 
-	static const char*  s_particleMassName[2];
+	static const char*  s_particleDensityName[2];
 	static const char*	s_youngsName[2];
 	static const char*	s_poissonName[2];
 	static const char*	s_hardeningName[2];

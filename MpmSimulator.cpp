@@ -11,7 +11,7 @@ MObject	MpmSimulator::s_cellSize;
 MObject MpmSimulator::s_nParticlePerCell;
 MObject	MpmSimulator::s_boundary;
 
-MObject	MpmSimulator::s_particleMass;
+MObject	MpmSimulator::s_particleDensity;
 MObject	MpmSimulator::s_youngs;
 MObject	MpmSimulator::s_poisson;
 MObject	MpmSimulator::s_hardening;
@@ -29,7 +29,7 @@ const char* MpmSimulator::s_cellSizeName[2]={"cellSize","cSize"};
 const char* MpmSimulator::s_nParticlePerCellName[2]={"particlePerCell", "ppc"};
 const char* MpmSimulator::s_boundaryName[2]={"boundary","bnd"};
 
-const char*	MpmSimulator::s_particleMassName[2]={"particleMass","pmass"};
+const char*	MpmSimulator::s_particleDensityName[2]={"particleDensity","pdensity"};
 const char*	MpmSimulator::s_youngsName[2]={"youngsModulus","ym"};
 const char*	MpmSimulator::s_poissonName[2]={"possionRatio","pr"};
 const char*	MpmSimulator::s_hardeningName[2]={"hardeningFactor","hf"};
@@ -272,12 +272,12 @@ MStatus MpmSimulator::initialize()
 	}
 
 	{
-		s_particleMass = nAttr.create(s_particleMassName[0], s_particleMassName[1], MFnNumericData::kFloat, 0.0001, &s);
+		s_particleDensity = nAttr.create(s_particleDensityName[0], s_particleDensityName[1], MFnNumericData::kFloat, 1000, &s);
 		nAttr.setMin(1e-5);
 		nAttr.setMax(1e12);
-		nAttr.setSoftMin(1e-4);
-		nAttr.setSoftMax(1e-3);
-		s = addAttribute(s_particleMass);
+		nAttr.setSoftMin(10);
+		nAttr.setSoftMax(10000);
+		s = addAttribute(s_particleDensity);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
 		s_youngs = nAttr.create(s_youngsName[0], s_youngsName[1], MFnNumericData::kFloat, 4.8e4, &s);
@@ -342,7 +342,7 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_gravity);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_deltaT = nAttr.create(s_deltaTName[0], s_deltaTName[1], MFnNumericData::kFloat, 1.0f/24.f, &s);
+		s_deltaT = nAttr.create(s_deltaTName[0], s_deltaTName[1], MFnNumericData::kFloat, 0.001f, &s);
 		nAttr.setMin(1e-3);
 		nAttr.setMax(10);
 		nAttr.setSoftMin(0.01);
@@ -379,7 +379,7 @@ bool MpmSimulator::initSolver()
 	MPlug flipPlug = Global::getPlug(this, s_flipName[0]);
 	MPlug gravityPlug = Global::getPlug(this, s_gravityName[0]);
 	MPlug deltaTPlug = Global::getPlug(this, s_deltaTName[0]);
-	MPlug particleMassPlug = Global::getPlug(this, s_particleMassName[0]);
+	MPlug particleDensityPlug = Global::getPlug(this, s_particleDensityName[0]);
 
 	MStatus s;
 	Vector3f gridMin, gridMax, cellSize;
@@ -407,12 +407,11 @@ bool MpmSimulator::initSolver()
 						frictionPlug.asFloat(),
 						flipPlug.asFloat(),
 						deltaTPlug.asFloat(),
-						particleMassPlug.asFloat(),
+						particleDensityPlug.asFloat(),
 						gravity);
 
-
-
 	m_core.createBall(Vector3f(0,0,0), 1, nParticle, frame);
+	res &= initParticle();
 	if (res)
 	{
 		MGlobal::displayInfo("init succeed!");
@@ -427,8 +426,45 @@ bool MpmSimulator::initSolver()
 bool MpmSimulator::initParticle()
 {
 	MPlug initParticlePlug = Global::getPlug(this, s_initParticleName[0]);
-	return false;
+	MPlug nParticlePlug = Global::getPlug(this, s_nParticlePerCellName[0]);
+	MStatus s;
+
+	int nPPC = nParticlePlug.asInt();
+
+	for (unsigned i = 0; i < initParticlePlug.numElements(&s); i++)
+	{
+		MPlug ithElementPlug = initParticlePlug.elementByPhysicalIndex(i, &s);
+		if (!s)
+			continue;
+
+		int logicalIdx     = ithElementPlug.logicalIndex(&s);
+		MObject valObj;
+		s = ithElementPlug.getValue(valObj);
+		if (!s)
+			continue;
+
+		OpenVDBData* data;
+		s = Global::getVDBData(valObj, data);
+		
+		if (!s)
+			continue;
+
+		std::vector<openvdb::GridBase::ConstPtr> grids;
+		mvdb::getGrids(grids, *data, "");
+		for (int ithGrid = 0; ithGrid < grids.size(); ++ithGrid)
+		{
+			openvdb::GridBase::ConstPtr& pGridBase = grids[i];
+			if (!pGridBase)
+				continue;
+			else if (pGridBase->isType<openvdb::FloatGrid>())
+				m_core.addParticleGrid<openvdb::FloatGrid>(pGridBase, nPPC);
+			else if (pGridBase->isType<openvdb::DoubleGrid>())
+				m_core.addParticleGrid<openvdb::DoubleGrid>(pGridBase, nPPC);
+		}
+	}
+	return true;
 }
+
 
 bool MpmSimulator::stepSolver()
 {

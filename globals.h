@@ -11,4 +11,5 @@ public:
 
 	static void displayError(const MPxNode* node, const MString& errorMsg);
 	static MStatus getFloat( const MPlug& plug, float* buffer, int length);
+	static MStatus getVDBData( MObject&matObj, OpenVDBData*& dat );
 };

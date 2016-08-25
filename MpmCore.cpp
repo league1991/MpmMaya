@@ -239,15 +239,16 @@ void MpmCore::compute_grid_velocity()
 			//fs.close();
 }
 
-bool MpmCore::getSDFNormal( Vector3f& grid_idx, Vector3f& out_sdf_normal )
+bool MpmCore::getSDFNormal( Vector3i& grid_idx, Vector3f& out_sdf_normal )
 {
-	if(grid->grids[grid_idx[0]][grid_idx[1]][grid_idx[2]]->collision_sdf<0)
-		return false;
+// 	if(grid->grids[grid_idx[0]][grid_idx[1]][grid_idx[2]]->collision_sdf<0)
+// 		return false;
 	out_sdf_normal[0]=grid->grids[grid_idx[0]-1][grid_idx[1]][grid_idx[2]]->collision_sdf-grid->grids[grid_idx[0]+1][grid_idx[1]][grid_idx[2]]->collision_sdf;
 	out_sdf_normal[1]=grid->grids[grid_idx[0]][grid_idx[1]-1][grid_idx[2]]->collision_sdf-grid->grids[grid_idx[0]][grid_idx[1]+1][grid_idx[2]]->collision_sdf;
 	out_sdf_normal[2]=grid->grids[grid_idx[0]][grid_idx[1]][grid_idx[2]-1]->collision_sdf-grid->grids[grid_idx[0]][grid_idx[1]][grid_idx[2]+1]->collision_sdf;
 	if(out_sdf_normal.norm()<=0.00000001)
 		return false;
+
 	out_sdf_normal.normalize();
 	return true;
 }
@@ -301,7 +302,7 @@ void MpmCore::solve_grid_collision()
 			{
 				if(!grid->grids[x][y][z]->active)
 					continue;
-				Vector3f index(x,y,z);
+				Vector3i index(x,y,z);
 				Vector3f sdf_normal;
 				if(getSDFNormal(index,sdf_normal))
 				{
@@ -456,7 +457,7 @@ void MpmCore::solve_particle_collision()
 					if(inGrid(index, grid->grid_division)&&inGrid(index_check_1,grid->grid_division)&&inGrid(index_check_2,grid->grid_division))
 					{
 					Vector3f temp_normal;
-					getSDFNormal(Vector3f(index[0],index[1],index[2]),temp_normal);
+					getSDFNormal(index,temp_normal);
 					sdf_normal+=temp_normal*weight_sdf;
 					sdf+=grid->grids[index[0]][index[1]][index[2]]->collision_sdf*weight_sdf;
 					velocity_collider+=grid->grids[index[0]][index[1]][index[2]]->collision_velocity*weight_sdf;
@@ -529,6 +530,7 @@ void MpmCore::createGrid(const Vector3f& gridMin,
 						 const Vector3f& gridCellSize,
 						 int boundary)
 {
+	PRINT_F("boundary %d", boundary);
 	Vector3i gridDimClamp = (gridMax-gridMin).cwiseQuotient(gridCellSize).cwiseMax(Vector3f(5,5,5)).cast<int>();
 	Vector3f cellSize = (gridMax - gridMin).cwiseQuotient(gridDimClamp.cast<float>());
 	
@@ -541,27 +543,24 @@ void MpmCore::createGrid(const Vector3f& gridMin,
 	float depth[3];
 	for (int i = 0; i < gridDimClamp[0]; ++i)
 	{
-		if (i >= bId[0][0] && i <= bId[0][1])
-			continue;
-		else
-			depth[0] = min(i-bId[0][0],bId[0][1]-i) * cellSize[0];
+		depth[0] = min(i-bId[0][0],bId[0][1]-i) * cellSize[0];
 
 		for (int j = 0; j < gridDimClamp[1]; ++j)
 		{
-			if (j >= bId[1][0] && j <= bId[1][1])
-				continue;
-			else
-				depth[1] = min(j-bId[1][0],bId[1][1]-j) * cellSize[1];
+			depth[1] = min(j-bId[1][0],bId[1][1]-j) * cellSize[1];
 
 			for (int k =0; k < gridDimClamp[2]; ++k)
 			{
-				if (k >= bId[2][0] && k <= bId[2][1])
-					continue;
-				else
-					depth[2] = min(k-bId[2][0],bId[2][1]-k) * cellSize[2];
+				depth[2] = min(k-bId[2][0],bId[2][1]-k) * cellSize[2];
 
 				float d = min(min(depth[0], depth[1]), depth[2]);
-				//grid->grids[i][j][k]->collision_sdf= d;
+				if (d > 0)
+				{
+					continue;
+				}
+
+				grid->grids[i][j][k]->collision_sdf= d * -1;
+				//PRINT_F("depth %d %d %d,  %f", i,j,k,grid->grids[i][j][k]->collision_sdf);
 			}
 		}
 	}
@@ -588,7 +587,8 @@ void MpmCore::create_grid()
 
 void MpmCore::createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame)
 {
-	float pmass= ctrl_params.particleMass;
+	float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
+	float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
 	Vector3f init_velocity(-100.0f, -100.0f, 0);
 	Vector3i gridDim = grid->grid_division;
 	for (int i =0; i < gridDim[0]; ++i)
@@ -734,6 +734,7 @@ bool MpmCore::init(const Vector3f& gridMin,
 	return true;
 }
 
+
 void MpmCore::getGridConfig( Vector3f& minPnt, Vector3f& cellSize, Vector3i& cellNum )
 {
 	if (!grid)
@@ -796,7 +797,7 @@ void MpmCore::setConfigure(float young,
 						   float friction,
 						   float flipPercent,
 						   float deltaT,
-						   float particleMass,
+						   float particleDensity,
 						   const Vector3f& gravity)
 {
 	ctrl_params.init_youngs_modulus = young;
@@ -809,7 +810,7 @@ void MpmCore::setConfigure(float young,
 	ctrl_params.deltaT = deltaT;
 	ctrl_params.frame = 0;
 	ctrl_params.gravity = gravity;
-	ctrl_params.particleMass = particleMass;
+	ctrl_params.particleDensity = particleDensity;
 	ctrl_params.initLame();
 	// youngs modulus:	54701.988281 // 
 	// poissons ratio:	0.187086 // 
@@ -841,7 +842,7 @@ void MpmCore::setConfigure(float young,
 
 void control_parameters::setting_1()
 {
-	particleMass = 0.0001;
+	particleDensity = 1000;
 	deltaT=5e-4f;
 	frame=0;
 
