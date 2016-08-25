@@ -713,10 +713,10 @@ bool MpmCore::init(const Vector3f& gridMin,
 
 	ctrl_params.setting_1();
 
-	create_snow_ball_2();
-	create_grid();
+	//create_snow_ball_2();
+	//create_grid();
 
-	//createGrid(gridMin, gridMax, gridCellSize, gridBoundary);
+	createGrid(gridMin, gridMax, gridCellSize, gridBoundary);
 	
 	m_recorder.init(ithFrame);
 	m_recorder.addStatus(ithFrame, MpmStatus(particles));

@@ -50,6 +50,7 @@ private:
 
 	// input
 	static MObject		s_initParticle;
+	static MObject		s_initType;
 
 	static const char*  s_boxMinName[2];
 	static const char*	s_boxMaxName[2];
@@ -69,5 +70,6 @@ private:
 	static const char*	s_deltaTName[2];
 
 	static const char*	s_initParticleName[2];
+	static const char*	s_initTypeName[2];
 };
 
