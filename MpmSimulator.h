@@ -3,6 +3,13 @@
 class MpmSimulator: public MPxLocatorNode
 {
 public:
+	enum InitType
+	{
+		INIT_FROM_VDB = 0,
+		INIT_SPHERE	  = 1,
+		INIT_TWO_SPHERES=2
+	};
+
 	MpmSimulator(void);
 	~MpmSimulator(void);
 	void				postConstructor();
@@ -50,6 +57,7 @@ private:
 
 	// input
 	static MObject		s_initParticle;
+	static MObject		s_initType;
 
 	static const char*  s_boxMinName[2];
 	static const char*	s_boxMaxName[2];
@@ -69,5 +77,6 @@ private:
 	static const char*	s_deltaTName[2];
 
 	static const char*	s_initParticleName[2];
+	static const char*	s_initTypeName[2];
 };
 

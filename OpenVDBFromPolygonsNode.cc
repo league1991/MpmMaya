@@ -336,7 +336,7 @@ OpenVDBFromPolygonsNode::compute(const MPlug& plug, MDataBlock& data)
 
         float voxelSize = data.inputValue(aVoxelSize, &status).asFloat();
         if (status != MS::kSuccess) return status;
-        if (!(voxelSize > 0.0)) return MS::kFailure;
+        if (!(voxelSize > 0.1)) return MS::kFailure;
 
         openvdb::math::Transform::Ptr transform =
             openvdb::math::Transform::createLinearTransform(voxelSize);

@@ -107,7 +107,7 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 			editorTemplate -addControl "criticalStretch";
 			editorTemplate -addControl "friction";
 			editorTemplate -addControl "flipPercent";
-			editorTemplate -addControl "particleMass";
+			editorTemplate -addControl "particleDensity";
 			editorTemplate -addControl "gravity";
 			editorTemplate -addControl "deltaTime";
 		editorTemplate -endLayout;
@@ -118,6 +118,7 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 			editorTemplate -addControl "cellSize";
 			editorTemplate -addControl "particlePerCell";
 			editorTemplate -addControl "boundary";
+			editorTemplate -addControl "initType";
 			editorTemplate -callCustom "initSimulatorControl" "modifySimulatorControl" "noAttr";
 		editorTemplate -endLayout;
 				

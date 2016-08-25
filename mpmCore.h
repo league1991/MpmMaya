@@ -78,14 +78,15 @@ public:
 	MpmCore();
 	~MpmCore();
 
-	bool	init(	const Vector3f& gridMin,
+	bool	initGrid(	const Vector3f& gridMin,
 					const Vector3f& gridMax,
 					const Vector3f& gridCellSize,
 					int gridBoundary = 2,
 					int ithFrame = 0);
 
 	void	setConfigure(float young, float possion, float hardening, float criticalComp, float criticalStretch, float friction, float flipPercent, float deltaT, float particleDensity, const Vector3f& gravity);
-	void	createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
+	void	addBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
+	void	addTwoBalls(int nParticlePerCell = 1);
 
 	bool	for_each_frame(int ithFrame);
 
@@ -99,6 +100,8 @@ public:
 		float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
 		Vector3f init_velocity(-100.0f, -100.0f, 0);
 		GridType::ConstAccessor acc = openvdb::gridConstPtrCast<GridType>(pGrid)->getAccessor();
+		openvdb::tools::GridSampler<GridType::ConstAccessor, openvdb::tools::BoxSampler>
+			interpolator(acc, pGrid->transform());
 		for (int i = 0; i < grid->grid_division[0]; ++i)
 		{
 			for (int j = 0; j < grid->grid_division[1]; ++j)
@@ -110,11 +113,11 @@ public:
 						Vector3f jitter(rand(), rand(), rand());
 						jitter = jitter.cwiseProduct(grid->grid_size) / float(RAND_MAX);
 						Vector3f pos = grid->grid_min + grid->grid_size.cwiseProduct(Vector3f(i,j,k)) + jitter;
-						openvdb::tools::GridSampler<GridType::ConstAccessor, openvdb::tools::BoxSampler>
-							interpolator(acc, pGrid->transform());
-// 						GridType::ValueType val = interpolator.wsSample(openvdb::Vec3d(pos[0],pos[1],pos[2]));
-// 						if (val < 0)
-// 							particles.push_back(new Particle(particles.size(), pos, init_velocity, pmass));
+ 						GridType::ValueType val = interpolator.wsSample(openvdb::Vec3d(pos[0],pos[1],pos[2]));
+						//PRINT_F("v %d %d %d    %f", i,j,k, val);
+						if (val < 0)
+						
+							particles.push_back(new Particle(particles.size(), pos, init_velocity, pmass));
 					}
 				}
 			}
@@ -122,6 +125,7 @@ public:
 		return false;
 	}
 
+	bool	commitInit(int ithFrame);
 	StatusRecorder&		getRecorder();
 private:
 	control_parameters	ctrl_params;
@@ -181,5 +185,4 @@ private:
 	void createGrid(const Vector3f& gridMin, const Vector3f& gridMax, const Vector3f& gridCellSize, int boundary = 2);
 
 	void create_snow_ball();
-	void create_snow_ball_2();
 };
