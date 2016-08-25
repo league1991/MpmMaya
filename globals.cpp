@@ -44,16 +44,18 @@ MStatus Global::getFloat( const MPlug& plug, float* buffer, int length)
 
 MStatus Global::getVDBData( MObject&matObj, OpenVDBData*& dat )
 {
+	//PRINT_F("get vdb data");
 	MStatus s;
 	MFnPluginData matFn(matObj, &s);
 
 	CHECK_MSTATUS_AND_RETURN_IT(s);
 	if (s)
 	{
-		MFnPluginData* pData= (MFnPluginData*)matFn.data(&s);
+		MPxData* pData= matFn.data(&s);
 		if (pData && s)
 		{
 			dat = dynamic_cast<OpenVDBData*>(pData);
+			//PRINT_F("pdata %p %p", pData, dat);
 			if (dat)
 				return s;
 		}

@@ -446,7 +446,7 @@ bool MpmSimulator::initParticle()
 		OpenVDBData* data;
 		s = Global::getVDBData(valObj, data);
 		
-		if (!s)
+		if (!s || !data)
 			continue;
 
 		std::vector<openvdb::GridBase::ConstPtr> grids;
