@@ -3,6 +3,13 @@
 class MpmSimulator: public MPxLocatorNode
 {
 public:
+	enum InitType
+	{
+		INIT_FROM_VDB = 0,
+		INIT_SPHERE	  = 1,
+		INIT_TWO_SPHERES=2
+	};
+
 	MpmSimulator(void);
 	~MpmSimulator(void);
 	void				postConstructor();

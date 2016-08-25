@@ -78,14 +78,15 @@ public:
 	MpmCore();
 	~MpmCore();
 
-	bool	init(	const Vector3f& gridMin,
+	bool	initGrid(	const Vector3f& gridMin,
 					const Vector3f& gridMax,
 					const Vector3f& gridCellSize,
 					int gridBoundary = 2,
 					int ithFrame = 0);
 
 	void	setConfigure(float young, float possion, float hardening, float criticalComp, float criticalStretch, float friction, float flipPercent, float deltaT, float particleDensity, const Vector3f& gravity);
-	void	createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
+	void	addBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
+	void	addTwoBalls(int nParticlePerCell = 1);
 
 	bool	for_each_frame(int ithFrame);
 
@@ -124,6 +125,7 @@ public:
 		return false;
 	}
 
+	bool	commitInit(int ithFrame);
 	StatusRecorder&		getRecorder();
 private:
 	control_parameters	ctrl_params;
@@ -183,5 +185,4 @@ private:
 	void createGrid(const Vector3f& gridMin, const Vector3f& gridMax, const Vector3f& gridCellSize, int boundary = 2);
 
 	void create_snow_ball();
-	void create_snow_ball_2();
 };

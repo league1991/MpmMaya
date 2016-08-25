@@ -574,7 +574,7 @@ void MpmCore::create_grid()
 			}
 }
 
-void MpmCore::createBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame)
+void MpmCore::addBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame)
 {
 	float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
 	float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
@@ -602,8 +602,6 @@ void MpmCore::createBall(const Vector3f& center, float radius, int nParticlePerC
 		}
 	}
 	
-	m_recorder.init(ithFrame);
-	m_recorder.addStatus(ithFrame, MpmStatus(particles));
 }
 
 void MpmCore::create_snow_ball()
@@ -642,12 +640,14 @@ void MpmCore::create_snow_ball()
 	}
 }
 
-void MpmCore::create_snow_ball_2()
+void MpmCore::addTwoBalls(int nParticlePerCell)
 {
+	float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
+	float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
+	Vector3f init_velocity(-100.0f, -100.0f, 0);
 	Vector3f snow_ball_center_1(0.5f, 1.0f, 0.f);
 	Vector3f snow_ball_center_2(-0.5f, 1.0f, 0.f);
 	Vector3i snow_ball_dimensions(40, 40, 40);
-	float pmass=0.0001;
 	Vector3f init_velocity_1(-10.f, 0.0f, 0);
 	Vector3f init_velocity_2(10.f, 0.0f, 0);
 	float radius=0.017f;
@@ -703,7 +703,7 @@ void MpmCore::create_snow_ball_2()
 	}
 }
 
-bool MpmCore::init(const Vector3f& gridMin,
+bool MpmCore::initGrid(const Vector3f& gridMin,
 				   const Vector3f& gridMax,
 				   const Vector3f& gridCellSize,
 				   int gridBoundary,
@@ -718,8 +718,6 @@ bool MpmCore::init(const Vector3f& gridMin,
 
 	createGrid(gridMin, gridMax, gridCellSize, gridBoundary);
 	
-	m_recorder.init(ithFrame);
-	m_recorder.addStatus(ithFrame, MpmStatus(particles));
 	return true;
 }
 
@@ -827,6 +825,13 @@ void MpmCore::setConfigure(float young,
 	PRINT_F("gravity:\t\t\t\t(%f,%f,%f)", ctrl_params.gravity[0],ctrl_params.gravity[1],ctrl_params.gravity[2]);
 	PRINT_F("=========================================================");
 
+}
+
+bool MpmCore::commitInit( int ithFrame )
+{
+	m_recorder.init(ithFrame);
+	m_recorder.addStatus(ithFrame, MpmStatus(particles));
+	return false;
 }
 
 void control_parameters::setting_1()

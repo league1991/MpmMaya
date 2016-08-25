@@ -22,6 +22,7 @@ MObject	MpmSimulator::s_flip;
 MObject	MpmSimulator::s_gravity;
 MObject	MpmSimulator::s_deltaT;
 MObject MpmSimulator::s_initParticle;
+MObject MpmSimulator::s_initType;
 
 const char* MpmSimulator::s_boxMinName[2]={"boxMin","bMin"};
 const char* MpmSimulator::s_boxMaxName[2]={"boxMax","bMax"};
@@ -40,6 +41,7 @@ const char*	MpmSimulator::s_flipName[2]={"flipPercent","fp"};
 const char*	MpmSimulator::s_gravityName[2]={"gravity","gr"};
 const char*	MpmSimulator::s_deltaTName[2]={"deltaTime","dt"};
 const char* MpmSimulator::s_initParticleName[2]={"initParticle","iptl"};
+const char* MpmSimulator::s_initTypeName[2]={"initType","intp"};
 
 MpmSimulator::MpmSimulator(void)
 {
@@ -357,6 +359,18 @@ MStatus MpmSimulator::initialize()
 		tAttr.setUsesArrayDataBuilder(true);
 		s = addAttribute(s_initParticle);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+
+		s_initType = eAttr.create(s_initTypeName[0], s_initTypeName[1]);
+		eAttr.addField("Init from OpenVDB",  INIT_FROM_VDB);
+		eAttr.addField("Init a Sphere", INIT_SPHERE);
+		eAttr.addField("Init two Spheres", INIT_TWO_SPHERES);
+		eAttr.setHidden(false);
+		eAttr.setReadable(true);
+		eAttr.setWritable(true);
+		eAttr.setStorable(true);
+		s= addAttribute(s_initType);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
 	return s;
 }
@@ -381,6 +395,8 @@ bool MpmSimulator::initSolver()
 	MPlug deltaTPlug = Global::getPlug(this, s_deltaTName[0]);
 	MPlug particleDensityPlug = Global::getPlug(this, s_particleDensityName[0]);
 
+	MPlug initTypePlug = Global::getPlug(this, s_initTypeName[0]);
+
 	MStatus s;
 	Vector3f gridMin, gridMax, cellSize;
 	s = Global::getFloat(boxMinPlug, &gridMin[0], 3);
@@ -394,7 +410,7 @@ bool MpmSimulator::initSolver()
 	
 	if (!cellSize.norm())
 		return false;
-	bool res = m_core.init(gridMin.cwiseMin(gridMax), gridMax.cwiseMax(gridMin), cellSize.cwiseAbs(), boundary, frame);
+	bool res = m_core.initGrid(gridMin.cwiseMin(gridMax), gridMax.cwiseMax(gridMin), cellSize.cwiseAbs(), boundary, frame);
 
 	Vector3f gravity;
 	s = Global::getFloat(gravityPlug, &gravity[0], 3);
@@ -410,8 +426,13 @@ bool MpmSimulator::initSolver()
 						particleDensityPlug.asFloat(),
 						gravity);
 
-	m_core.createBall(Vector3f(0,0,0), 1, nParticle, frame);
-	res &= initParticle();
+	if (initTypePlug.asShort() == INIT_SPHERE)
+		m_core.addBall(Vector3f(0,0,0), 1, nParticle, frame);
+	else if (initTypePlug.asShort() == INIT_TWO_SPHERES)
+		m_core.addTwoBalls(nParticle);
+	else if (initTypePlug.asShort() == INIT_FROM_VDB)
+		res &= initParticle();
+	m_core.commitInit(frame);
 	if (res)
 	{
 		MGlobal::displayInfo("init succeed!");
@@ -471,6 +492,7 @@ bool MpmSimulator::stepSolver()
 	int frame = getCurFrame();
 	return m_core.for_each_frame(frame);
 }
+
 
 
 
