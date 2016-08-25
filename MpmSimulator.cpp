@@ -273,7 +273,7 @@ bool MpmSimulator::initSolver()
 	if (!cellSize.norm())
 		return false;
 	bool res = m_core.init(gridMin.cwiseMin(gridMax), gridMax.cwiseMax(gridMin), cellSize.cwiseAbs(), boundary, frame);
-	m_core.createBall(Vector3f(0,0,0), 1, nParticle, frame);
+	//m_core.createBall(Vector3f(0,0,0), 1, nParticle, frame);
 	if (res)
 	{
 		MGlobal::displayInfo("init succeed!");
