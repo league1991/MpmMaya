@@ -12,6 +12,5 @@
 *.vcxproj
 *.idb
 *.unsuccessfulbuild
-/mayaFiles/*.ma
 /openvdb_maya_plugin/x64/Release
 /x64/Release
