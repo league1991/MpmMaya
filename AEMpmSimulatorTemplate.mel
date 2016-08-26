@@ -77,9 +77,9 @@ global proc initSimulatorControl(string $attrName)
 		button -label "Initialize" -c ("initSimulator " + $nodeName) initButton;
 		
 		intSliderGrp 	-label "Simulation Length" -field true
-						-minValue 1 -maxValue 100
+						-minValue 1 -maxValue 500
 						-fieldMinValue  1 -fieldMaxValue  10000
-						-value 10
+						-value 100
 						simLengthSlider;
 		button -label "Simulate" -c ("execSimulator " + $nodeName + " 0") simButton;
 		button -label "Save Simulation Result" -c ("saveSimulationData " + $nodeName) saveButton;
@@ -112,7 +112,7 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 			editorTemplate -addControl "deltaTime";
 		editorTemplate -endLayout;
 		
-		editorTemplate -beginLayout "Solver" -collapse false;
+		editorTemplate -beginLayout "Initialization" -collapse false;
 			editorTemplate -addControl "boxMin";
 			editorTemplate -addControl "boxMax";
 			editorTemplate -addControl "cellSize";
@@ -120,6 +120,12 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 			editorTemplate -addControl "boundary";
 			editorTemplate -addControl "initType";
 			editorTemplate -callCustom "initSimulatorControl" "modifySimulatorControl" "noAttr";
+
+			editorTemplate -beginLayout "Initial Velocity" -collapse false;		
+				editorTemplate -addControl "initStartTransform";
+				editorTemplate -addControl "initEndTransform";
+				editorTemplate -addControl "initDeltaTime";
+			editorTemplate -endLayout;
 		editorTemplate -endLayout;
 				
 		editorTemplate -suppress "initParticle";
