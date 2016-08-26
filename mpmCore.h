@@ -94,11 +94,11 @@ public:
 	void	getGridConfig(Vector3f& minPnt, Vector3f& cellSize, Vector3i& cellNum);
 
 	template<typename GridType, typename GridPtrType> 
-	bool	addParticleGrid(typename GridPtrType& pGrid, int nParticlePerCell = 1)
+	bool	addParticleGrid(typename GridPtrType& pGrid, const Eigen::Matrix4f& velMat,  int nParticlePerCell = 1)
 	{
 		float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
 		float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
-		Vector3f init_velocity(-100.0f, -100.0f, 0);
+		Eigen::Vector4f vel(0,0,0,1);
 		GridType::ConstAccessor acc = openvdb::gridConstPtrCast<GridType>(pGrid)->getAccessor();
 		openvdb::tools::GridSampler<GridType::ConstAccessor, openvdb::tools::BoxSampler>
 			interpolator(acc, pGrid->transform());
@@ -116,8 +116,11 @@ public:
  						GridType::ValueType val = interpolator.wsSample(openvdb::Vec3d(pos[0],pos[1],pos[2]));
 						//PRINT_F("v %d %d %d    %f", i,j,k, val);
 						if (val < 0)
+						{
+							vel = velMat * Eigen::Vector4f(pos[0],pos[1],pos[2],1.0);
+							particles.push_back(new Particle(particles.size(), pos, Vector3f(vel[0],vel[1],vel[2]), pmass));
+						}
 						
-							particles.push_back(new Particle(particles.size(), pos, init_velocity, pmass));
 					}
 				}
 			}

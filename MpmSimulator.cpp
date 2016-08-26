@@ -24,6 +24,10 @@ MObject	MpmSimulator::s_deltaT;
 MObject MpmSimulator::s_initParticle;
 MObject MpmSimulator::s_initType;
 
+MObject MpmSimulator::s_initTrans0;
+MObject MpmSimulator::s_initTrans1;
+MObject MpmSimulator::s_initDeltaTime;
+
 const char* MpmSimulator::s_boxMinName[2]={"boxMin","bMin"};
 const char* MpmSimulator::s_boxMaxName[2]={"boxMax","bMax"};
 const char* MpmSimulator::s_cellSizeName[2]={"cellSize","cSize"};
@@ -42,6 +46,10 @@ const char*	MpmSimulator::s_gravityName[2]={"gravity","gr"};
 const char*	MpmSimulator::s_deltaTName[2]={"deltaTime","dt"};
 const char* MpmSimulator::s_initParticleName[2]={"initParticle","iptl"};
 const char* MpmSimulator::s_initTypeName[2]={"initType","intp"};
+
+const char* MpmSimulator::s_initTrans0Name[2]={"initStartTransform", "initstr"};
+const char* MpmSimulator::s_initTrans1Name[2]={"initEndTransform", "initetr"};
+const char* MpmSimulator::s_initDeltaTimeName[2]={"initDeltaTime", "initdt"};
 
 MpmSimulator::MpmSimulator(void)
 {
@@ -274,7 +282,7 @@ MStatus MpmSimulator::initialize()
 	}
 
 	{
-		s_particleDensity = nAttr.create(s_particleDensityName[0], s_particleDensityName[1], MFnNumericData::kFloat, 1000, &s);
+		s_particleDensity = nAttr.create(s_particleDensityName[0], s_particleDensityName[1], MFnNumericData::kFloat, 400, &s);
 		nAttr.setMin(1e-5);
 		nAttr.setMax(1e12);
 		nAttr.setSoftMin(10);
@@ -282,7 +290,7 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_particleDensity);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_youngs = nAttr.create(s_youngsName[0], s_youngsName[1], MFnNumericData::kFloat, 4.8e4, &s);
+		s_youngs = nAttr.create(s_youngsName[0], s_youngsName[1], MFnNumericData::kFloat, 1.4e5, &s);
 		nAttr.setMin(1e-5);
 		nAttr.setMax(1e12);
 		nAttr.setSoftMin(1e4);
@@ -298,7 +306,7 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_poisson);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_hardening = nAttr.create(s_hardeningName[0], s_hardeningName[1], MFnNumericData::kFloat, 15.f, &s);
+		s_hardening = nAttr.create(s_hardeningName[0], s_hardeningName[1], MFnNumericData::kFloat, 10.f, &s);
 		nAttr.setMin(0);
 		nAttr.setMax(1e4);
 		nAttr.setSoftMin(3);
@@ -306,7 +314,7 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_hardening);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 		
-		s_criticalCompression = nAttr.create(s_criticalCompressionName[0], s_criticalCompressionName[1], MFnNumericData::kFloat, 0.019, &s);
+		s_criticalCompression = nAttr.create(s_criticalCompressionName[0], s_criticalCompressionName[1], MFnNumericData::kFloat, 2.5e-2, &s);
 		nAttr.setMin(0);
 		nAttr.setMax(10);
 		nAttr.setSoftMin(0.001);
@@ -314,7 +322,7 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_criticalCompression);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_criticalStretch = nAttr.create(s_criticalStretchName[0], s_criticalStretchName[1], MFnNumericData::kFloat, 0.0075, &s);
+		s_criticalStretch = nAttr.create(s_criticalStretchName[0], s_criticalStretchName[1], MFnNumericData::kFloat, 7.5e-3, &s);
 		nAttr.setMin(0);
 		nAttr.setMax(10);
 		nAttr.setSoftMin(0.001);
@@ -353,14 +361,14 @@ MStatus MpmSimulator::initialize()
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
 	{
-		s_initParticle = tAttr.create(s_initParticleName[0], s_initParticleName[1], OpenVDBData::id, MObject::kNullObj, &s);
+		s_initParticle = tAttr.create(s_initParticleName[0], s_initParticleName[1], MFnData::kPlugin, &s);
 		tAttr.setReadable(false);
 		tAttr.setArray(true);
 		tAttr.setUsesArrayDataBuilder(true);
+		tAttr.setAffectsAppearance(true);
 		s = addAttribute(s_initParticle);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
-
-
+		
 		s_initType = eAttr.create(s_initTypeName[0], s_initTypeName[1]);
 		eAttr.addField("Init from OpenVDB",  INIT_FROM_VDB);
 		eAttr.addField("Init a Sphere", INIT_SPHERE);
@@ -370,6 +378,36 @@ MStatus MpmSimulator::initialize()
 		eAttr.setWritable(true);
 		eAttr.setStorable(true);
 		s= addAttribute(s_initType);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_initTrans0 = mAttr.create(s_initTrans0Name[0], s_initTrans0Name[1]);
+		mAttr.setHidden(false);
+		mAttr.setReadable(true);
+		mAttr.setWritable(true);
+		mAttr.setKeyable(true);
+		mAttr.setArray(true);
+		mAttr.setStorable(true);
+		mAttr.setUsesArrayDataBuilder(true);
+		s = addAttribute(s_initTrans0);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_initTrans1 = mAttr.create(s_initTrans1Name[0], s_initTrans1Name[1]);
+		mAttr.setHidden(false);
+		mAttr.setReadable(true);
+		mAttr.setWritable(true);
+		mAttr.setKeyable(true);
+		mAttr.setArray(true);
+		mAttr.setStorable(true);
+		mAttr.setUsesArrayDataBuilder(true);
+		s = addAttribute(s_initTrans1);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_initDeltaTime = nAttr.create(s_initDeltaTimeName[0], s_initDeltaTimeName[1], MFnNumericData::kFloat, 1.f/24.f, &s);
+		nAttr.setMin(1e-3);
+		nAttr.setMax(10);
+		nAttr.setSoftMin(0.01);
+		nAttr.setSoftMax(0.1);
+		s = addAttribute(s_initDeltaTime);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
 	return s;
@@ -448,17 +486,49 @@ bool MpmSimulator::initParticle()
 {
 	MPlug initParticlePlug = Global::getPlug(this, s_initParticleName[0]);
 	MPlug nParticlePlug = Global::getPlug(this, s_nParticlePerCellName[0]);
+	MPlug initTrans0Plug = Global::getPlug(this, s_initTrans0Name[0]);
+	MPlug initTrans1Plug = Global::getPlug(this, s_initTrans1Name[0]);
+	MPlug initDeltaTPlug = Global::getPlug(this, s_initDeltaTimeName[0]);
 	MStatus s;
 
 	int nPPC = nParticlePlug.asInt();
+	float deltaT = initDeltaTPlug.asFloat();
 
 	for (unsigned i = 0; i < initParticlePlug.numElements(&s); i++)
 	{
 		MPlug ithElementPlug = initParticlePlug.elementByPhysicalIndex(i, &s);
-		if (!s)
+		if (!s || !ithElementPlug.isConnected())
 			continue;
 
 		int logicalIdx     = ithElementPlug.logicalIndex(&s);
+		MPlug ithTrans0Plug= initTrans0Plug.elementByLogicalIndex(logicalIdx);
+		MPlug ithTrans1Plug= initTrans1Plug.elementByLogicalIndex(logicalIdx);
+		MObject trans0Obj = ithTrans0Plug.asMObject();
+		MObject trans1Obj = ithTrans1Plug.asMObject();
+		MFnMatrixData trans0Data(trans0Obj, &s), trans1Data(trans1Obj, &s);
+		if (!s)
+			continue;
+		MMatrix trans0 = trans0Data.matrix();
+		MMatrix trans1 = trans1Data.matrix();	
+		Eigen::Matrix4f velMatE;
+		if (abs(trans0.det4x4()) > 0.01)
+		{
+			MMatrix velMat = (trans1 - trans0) * trans0.inverse() * (1.0/deltaT);
+			Eigen::Matrix4d velMatEd;
+			velMatEd <<	velMat(0,0), velMat(0,1), velMat(0,2), velMat(0,3), 
+						velMat(1,0), velMat(1,1), velMat(1,2), velMat(1,3), 
+						velMat(2,0), velMat(2,1), velMat(2,2), velMat(2,3),
+						velMat(3,0), velMat(3,1), velMat(3,2), velMat(3,3);
+			velMatE = velMatEd.cast<float>();
+			PRINT_F("vel:\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf",
+				velMat(0,0), velMat(0,1), velMat(0,2), velMat(0,3), 
+				velMat(1,0), velMat(1,1), velMat(1,2), velMat(1,3), 
+				velMat(2,0), velMat(2,1), velMat(2,2), velMat(2,3),
+				velMat(3,0), velMat(3,1), velMat(3,2), velMat(3,3));
+		}
+		else
+			velMatE.setZero();
+
 		MObject valObj;
 		s = ithElementPlug.getValue(valObj);
 		if (!s)
@@ -474,13 +544,13 @@ bool MpmSimulator::initParticle()
 		mvdb::getGrids(grids, *data, "");
 		for (int ithGrid = 0; ithGrid < grids.size(); ++ithGrid)
 		{
-			openvdb::GridBase::ConstPtr& pGridBase = grids[i];
+			openvdb::GridBase::ConstPtr pGridBase = grids[ithGrid];
 			if (!pGridBase)
 				continue;
 			else if (pGridBase->isType<openvdb::FloatGrid>())
-				m_core.addParticleGrid<openvdb::FloatGrid>(pGridBase, nPPC);
+				m_core.addParticleGrid<openvdb::FloatGrid>(pGridBase, velMatE, nPPC);
 			else if (pGridBase->isType<openvdb::DoubleGrid>())
-				m_core.addParticleGrid<openvdb::DoubleGrid>(pGridBase, nPPC);
+				m_core.addParticleGrid<openvdb::DoubleGrid>(pGridBase, velMatE, nPPC);
 		}
 	}
 	return true;
@@ -492,6 +562,7 @@ bool MpmSimulator::stepSolver()
 	int frame = getCurFrame();
 	return m_core.for_each_frame(frame);
 }
+
 
 
 
