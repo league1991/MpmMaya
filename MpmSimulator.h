@@ -54,8 +54,9 @@ private:
 	static MObject		s_flip;
 	static MObject		s_gravity;
 	static MObject		s_deltaT;
+	static MObject		s_nSubStep;
 
-	// input
+	// input particle
 	static MObject		s_initParticle;
 	static MObject		s_initType;
 	static MObject		s_initTrans0;
@@ -78,6 +79,7 @@ private:
 	static const char*	s_flipName[2];
 	static const char*	s_gravityName[2];
 	static const char*	s_deltaTName[2];
+	static const char*  s_nSubStepName[2];
 
 	static const char*	s_initParticleName[2];
 	static const char*	s_initTypeName[2];

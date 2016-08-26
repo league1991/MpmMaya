@@ -88,7 +88,7 @@ public:
 	void	addBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
 	void	addTwoBalls(int nParticlePerCell = 1);
 
-	bool	for_each_frame(int ithFrame);
+	bool	for_each_frame(int ithFrame, float deltaTime, int nSubstep = 1);
 
 	const vector<Particle*>& getParticle();
 	void	getGridConfig(Vector3f& minPnt, Vector3f& cellSize, Vector3i& cellNum);

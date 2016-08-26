@@ -475,7 +475,7 @@ void MpmCore::update_position()
 		particles[pit]->position+=particles[pit]->velocity*ctrl_params.deltaT;
 }
 
-bool MpmCore::for_each_frame(int ithFrame)
+bool MpmCore::for_each_frame(int ithFrame, float deltaTime, int nSubstep)
 {
 	// 更新粒子位置
 	int start = m_recorder.getStartFrame();
@@ -493,19 +493,23 @@ bool MpmCore::for_each_frame(int ithFrame)
 		}
 	}
 	
-	if(ctrl_params.frame!=0)
-		from_particles_to_grid();
+	ctrl_params.deltaT = deltaTime / nSubstep;
+	for (int ithStep = 0; ithStep < nSubstep; ++ithStep)
+	{
+		if(ctrl_params.frame!=0)
+			from_particles_to_grid();
 
-	if(ctrl_params.frame==0)
-		init_particle_volume_velocity();
+		if(ctrl_params.frame==0)
+			init_particle_volume_velocity();
 
-	compute_grid_velocity();
-	solve_grid_collision();
-	compute_deformation_gradient_F();
-	from_grid_to_particle();
-	solve_particle_collision();
+		compute_grid_velocity();
+		solve_grid_collision();
+		compute_deformation_gradient_F();
+		from_grid_to_particle();
+		solve_particle_collision();
 
-	update_position();
+		update_position();
+	}
 
 	ctrl_params.frame++;
 

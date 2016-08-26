@@ -21,6 +21,7 @@ MObject	MpmSimulator::s_friction;
 MObject	MpmSimulator::s_flip;
 MObject	MpmSimulator::s_gravity;
 MObject	MpmSimulator::s_deltaT;
+MObject	MpmSimulator::s_nSubStep;
 MObject MpmSimulator::s_initParticle;
 MObject MpmSimulator::s_initType;
 
@@ -44,6 +45,7 @@ const char*	MpmSimulator::s_frictionName[2]={"friction","fr"};
 const char*	MpmSimulator::s_flipName[2]={"flipPercent","fp"};
 const char*	MpmSimulator::s_gravityName[2]={"gravity","gr"};
 const char*	MpmSimulator::s_deltaTName[2]={"deltaTime","dt"};
+const char* MpmSimulator::s_nSubStepName[2]={"numberOfSubsteps","noss"};
 const char* MpmSimulator::s_initParticleName[2]={"initParticle","iptl"};
 const char* MpmSimulator::s_initTypeName[2]={"initType","intp"};
 
@@ -257,14 +259,14 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_boxMax);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_cellSize = nAttr.create(s_cellSizeName[0], s_cellSizeName[1], MFnNumericData::k3Float, 0.1, &s);
+		s_cellSize = nAttr.create(s_cellSizeName[0], s_cellSizeName[1], MFnNumericData::k3Float, 0.25, &s);
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
 		nAttr.setMin(0.01);
 		s = addAttribute(s_cellSize);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_nParticlePerCell = nAttr.create(s_nParticlePerCellName[0], s_nParticlePerCellName[1], MFnNumericData::kShort, 2, &s);
+		s_nParticlePerCell = nAttr.create(s_nParticlePerCellName[0], s_nParticlePerCellName[1], MFnNumericData::kShort, 8, &s);
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
 		nAttr.setMin(1);
@@ -352,12 +354,20 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_gravity);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_deltaT = nAttr.create(s_deltaTName[0], s_deltaTName[1], MFnNumericData::kFloat, 0.001f, &s);
+		s_deltaT = nAttr.create(s_deltaTName[0], s_deltaTName[1], MFnNumericData::kFloat, 1.0/24.f, &s);
 		nAttr.setMin(1e-3);
 		nAttr.setMax(10);
 		nAttr.setSoftMin(0.01);
 		nAttr.setSoftMax(0.1);
 		s = addAttribute(s_deltaT);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_nSubStep = nAttr.create(s_nSubStepName[0], s_nSubStepName[1], MFnNumericData::kInt, 5, &s);
+		nAttr.setMin(1);
+		nAttr.setMax(100);
+		nAttr.setSoftMin(1);
+		nAttr.setSoftMax(15);
+		s = addAttribute(s_nSubStep);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
 	{
@@ -559,8 +569,10 @@ bool MpmSimulator::initParticle()
 
 bool MpmSimulator::stepSolver()
 {
+	MPlug deltaTPlug = Global::getPlug(this, s_deltaTName[0]);
+	MPlug nSubstepPlug = Global::getPlug(this, s_nSubStepName[0]);
 	int frame = getCurFrame();
-	return m_core.for_each_frame(frame);
+	return m_core.for_each_frame(frame, deltaTPlug.asFloat(), nSubstepPlug.asInt());
 }
 
 
