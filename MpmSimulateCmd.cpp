@@ -61,13 +61,17 @@ MStatus MpmSimulateCmd::doIt( const MArgList& args )
 		MObject depNode;
 		pSel.getDependNode(depNode);
 		MFnDependencyNode nodeFn(depNode, &s);
+		if (!s)
+			continue;
 		MString typeName = nodeFn.typeName(&s);
+		if (!s)
+			continue;
 
 		// 找到模拟节点，执行之
 		if (typeName == MpmSimulator::m_nodeName)
 		{
 			MpmSimulator* node = (MpmSimulator*)nodeFn.userNode(&s);
-			if (!s)
+			if (!s || !node)
 				continue;
 
 			bool res = true;

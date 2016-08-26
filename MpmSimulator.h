@@ -58,6 +58,9 @@ private:
 	// input
 	static MObject		s_initParticle;
 	static MObject		s_initType;
+	static MObject		s_initTrans0;
+	static MObject		s_initTrans1;
+	static MObject		s_initDeltaTime;
 
 	static const char*  s_boxMinName[2];
 	static const char*	s_boxMaxName[2];
@@ -78,5 +81,8 @@ private:
 
 	static const char*	s_initParticleName[2];
 	static const char*	s_initTypeName[2];
+	static const char*	s_initTrans0Name[2];
+	static const char*  s_initTrans1Name[2];
+	static const char*  s_initDeltaTimeName[2];
 };
 

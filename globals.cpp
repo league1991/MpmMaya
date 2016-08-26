@@ -49,7 +49,7 @@ MStatus Global::getVDBData( MObject&matObj, OpenVDBData*& dat )
 	MFnPluginData matFn(matObj, &s);
 
 	CHECK_MSTATUS_AND_RETURN_IT(s);
-	if (s)
+	if (s && matFn.typeId() == OpenVDBData::id)
 	{
 		MPxData* pData= matFn.data(&s);
 		if (pData && s)
