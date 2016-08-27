@@ -27,13 +27,13 @@ public:
 
 	bool				initSolver();
 	bool				stepSolver();
+	int					getNumSampledParticle();
 
 private:
 	void				drawIcon();
 	void				drawCell();
 	int					getCurFrame();
 	bool				initParticle();
-
 	MBoundingBox		m_box;
 	MpmCore				m_core;
 
@@ -63,6 +63,13 @@ private:
 	static MObject		s_initTrans1;
 	static MObject		s_initDeltaTime;
 
+	// particle
+	static MObject		s_particleStr;
+	static MObject		s_inputParticle;
+	static MObject		s_outputParticle;
+	static MObject		s_sampleRate;
+	static MObject		s_numSampledParticle;
+
 	static const char*  s_boxMinName[2];
 	static const char*	s_boxMaxName[2];
 	static const char*  s_cellSizeName[2];
@@ -86,5 +93,11 @@ private:
 	static const char*	s_initTrans0Name[2];
 	static const char*  s_initTrans1Name[2];
 	static const char*  s_initDeltaTimeName[2];
+
+	static const char*  s_particleStrName[2];
+	static const char*  s_inputParticleName[2];
+	static const char*  s_outputParticleName[2];
+	static const char*  s_sampleRateName[2];
+	static const char*  s_numSampledParticleName[2];
 };
 

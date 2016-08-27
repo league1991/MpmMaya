@@ -95,3 +95,25 @@ MpmStatus::~MpmStatus()
 // 	}
 	m_particles.clear();
 }
+
+void MpmStatus::getParticlePos( int idx, Vector3f& pos )
+{
+	if (idx >= 0 && idx < m_particles.size())
+	{
+		pos = m_particles[idx].position;
+	}
+}
+
+
+void MpmStatus::getParticleVelocity( int idx, Vector3f& vel)
+{
+	if (idx >= 0 && idx < m_particles.size())
+	{
+		vel = m_particles[idx].velocity;
+	}
+}
+
+int MpmStatus::getParticleCount()
+{
+	return m_particles.size();
+}

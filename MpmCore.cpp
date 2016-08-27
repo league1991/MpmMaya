@@ -582,7 +582,7 @@ void MpmCore::addBall(const Vector3f& center, float radius, int nParticlePerCell
 {
 	float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
 	float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
-	Vector3f init_velocity(-100.0f, -100.0f, 0);
+	Vector3f init_velocity(-1.0f, -1.0f, 0);
 	Vector3i gridDim = grid->grid_division;
 	for (int i =0; i < gridDim[0]; ++i)
 	{
