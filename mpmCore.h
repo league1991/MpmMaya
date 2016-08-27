@@ -7,13 +7,13 @@ using namespace std;
 
 struct GridNode
 {
-	float mass;
 	Vector3f velocity_new;
 	Vector3f velocity_old;
-	//float density;
-	float collision_sdf;
 	Vector3f collision_velocity;
 	Vector3f external_force;
+	//float density;
+	float collision_sdf;
+	float mass;
 	bool active;
 
 	GridNode();

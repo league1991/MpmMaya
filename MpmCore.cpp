@@ -52,11 +52,13 @@ bool MpmCore::inGrid( Vector3i& index, Vector3i& grid_division )
 float MpmCore::NX_bspline( float m )
 {
 	m=fabs(m);
+	float m2 = m*m;
+	float m3 = m2*m;
 	float ret;
 	if(m<1.0f)
-		ret=m*m*m*0.5-m*m+2.0/3.0;
+		ret= m3*0.5 - m2 + 2.0/3.0;
 	else if(m<2.0f)
-		ret=m*m*m/(-6)+m*m-m*2 + 4.0/3.0;
+		ret= m3/(-6)+ m2 - m*2 + 4.0/3.0;
 	else
 		return 0;
 
@@ -166,11 +168,12 @@ void MpmCore::from_particles_to_grid()
 		{
 			for(int z=0;z<grid->grids.shape()[2];z++)
 			{
-				grid->grids[x][y][z]->mass=0;
-				grid->grids[x][y][z]->external_force = Vector3f(0,0,0);
-				grid->grids[x][y][z]->velocity_old = Vector3f(0,0,0);
-				grid->grids[x][y][z]->velocity_new = Vector3f(0,0,0);
-				grid->grids[x][y][z]->active=false;
+				GridNode* pCell = grid->grids[x][y][z];
+				pCell->mass=0;
+				pCell->external_force.setZero();
+				pCell->velocity_old.setZero();
+				pCell->velocity_new.setZero();
+				pCell->active=false;
 			}
 		}
 	}
@@ -179,10 +182,11 @@ void MpmCore::from_particles_to_grid()
 	{
 		if(!particles[pit]->isValid)
 			continue;
-		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
-		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
+		Particle* ptcl = particles[pit];
+		Vector3f p_grid_index_f=ptcl->getGridIdx(grid->grid_min,grid->grid_size);
+		Vector3i p_grid_index_i=ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 
-		Matrix3f cauchyStress=cauchy_stress(particles[pit]->Fe, particles[pit]->Fp, particles[pit]->volume);
+		Matrix3f cauchyStress=cauchy_stress(ptcl->Fe, ptcl->Fp, ptcl->volume);
 		for(int z=-2; z<=2;z++)
 		{
 			for(int y=-2; y<=2;y++)
@@ -192,16 +196,16 @@ void MpmCore::from_particles_to_grid()
 					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 					if(inGrid(index, grid->grid_division))
 					{
-						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
+						Vector3f xp=(ptcl->position - grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2])) - grid->grid_min).cwiseQuotient(grid->grid_size);
 						float weight_p=weight(xp);
 						Vector3f gradient_weight=weight_gradientF(xp).cwiseQuotient(grid->grid_size);
 
-						grid->grids[index[0]][index[1]][index[2]]->mass+=weight_p*particles[pit]->pmass;
-
+						GridNode* pCell = grid->grids[index[0]][index[1]][index[2]];
+						pCell->mass+=weight_p*ptcl->pmass;
 						//now velocity is v*m. we need to divide m before use it
-						grid->grids[index[0]][index[1]][index[2]]->velocity_old+=weight_p*particles[pit]->pmass*particles[pit]->velocity;
+						pCell->velocity_old+=weight_p*ptcl->pmass*ptcl->velocity;
 						//fomular 6
-						grid->grids[index[0]][index[1]][index[2]]->external_force+=cauchyStress*gradient_weight;
+						pCell->external_force+=cauchyStress*gradient_weight;
 					}
 				}
 			}
@@ -326,8 +330,9 @@ void MpmCore::compute_deformation_gradient_F()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
-		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
+		Particle* ptcl = particles[pit];
+		Vector3f p_grid_index_f = ptcl->getGridIdx(grid->grid_min,grid->grid_size);
+		Vector3i p_grid_index_i = ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 
 		Matrix3f velocity_gradient;
 		velocity_gradient.setZero();
@@ -341,7 +346,7 @@ void MpmCore::compute_deformation_gradient_F()
 					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 					if(inGrid(index, grid->grid_division))
 					{
-						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
+						Vector3f xp=(ptcl->position - grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
 						Vector3f gradient_weight=weight_gradientF(xp);
 						//fomular in step 4
 						velocity_gradient+=Eigen::Vector3f(grid->grids[index[0]][index[1]][index[2]]->velocity_new)*
@@ -352,8 +357,8 @@ void MpmCore::compute_deformation_gradient_F()
 		}
 
 		//fomular 11
-		Eigen::Matrix3f Fe_new=(Eigen::Matrix3f::Identity()+velocity_gradient*ctrl_params.deltaT)*particles[pit]->Fe;
-		Eigen::Matrix3f F_new=Fe_new*particles[pit]->Fp;
+		Eigen::Matrix3f Fe_new=(Eigen::Matrix3f::Identity()+velocity_gradient*ctrl_params.deltaT)*ptcl->Fe;
+		Eigen::Matrix3f F_new=Fe_new*ptcl->Fp;
 		Eigen::JacobiSVD<Eigen::Matrix3f> svd(Fe_new, Eigen::ComputeFullV | Eigen::ComputeFullU);
 
 		Matrix3f clamped_S;
@@ -372,8 +377,8 @@ void MpmCore::compute_deformation_gradient_F()
 		Eigen::Matrix3f V=svd.matrixV();
 
 		//fomular 12
-		particles[pit]->Fe=U*clamped_S*V.transpose();
-		particles[pit]->Fp=V*clamped_S_inv*U.transpose()*F_new;
+		ptcl->Fe = U*clamped_S    *V.transpose();
+		ptcl->Fp = V*clamped_S_inv*U.transpose()*F_new;
 	}
 }
 
@@ -381,12 +386,13 @@ void MpmCore::from_grid_to_particle()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		if(!particles[pit]->isValid)
+		Particle* ptcl = particles[pit];
+		if(!ptcl->isValid)
 			continue;
 		//Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_center,grid->grid_size);
-		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
+		Vector3i p_grid_index_i= ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 		Vector3f v_PIC(0,0,0);
-		Vector3f v_FLIP=particles[pit]->velocity;
+		Vector3f v_FLIP= ptcl->velocity;
 		//Matrix3f cauchyStress=cauchy_stress(particles[pit]->Fe, particles[pit]->Fp)*particles[pit]->volume*-1;
 		for(int z=-2; z<=2;z++)
 		{
@@ -397,17 +403,18 @@ void MpmCore::from_grid_to_particle()
 					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 					if(inGrid(index, grid->grid_division))
 					{
-						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
+						GridNode* pCell = grid->grids[index[0]][index[1]][index[2]];
+						Vector3f xp=(ptcl->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
 						float weight_p=weight(xp);
-						v_PIC+=grid->grids[index[0]][index[1]][index[2]]->velocity_new*weight_p;
-						v_FLIP+=(grid->grids[index[0]][index[1]][index[2]]->velocity_new-grid->grids[index[0]][index[1]][index[2]]->velocity_old)*weight_p;
+						v_PIC  += pCell->velocity_new*weight_p;
+						v_FLIP += (pCell->velocity_new - pCell->velocity_old)*weight_p;
 					}
 				}
 			}
 		}
-		particles[pit]->velocity=v_PIC*(1-ctrl_params.flip_percent)+v_FLIP*ctrl_params.flip_percent;
+		ptcl->velocity=v_PIC*(1-ctrl_params.flip_percent)+v_FLIP*ctrl_params.flip_percent;
 		if(pit==0)
-			cout<<"vel:"<<particles[pit]->velocity[0]<<" "<<particles[pit]->velocity[1]<<" "<<particles[pit]->velocity[2]<<endl;
+			cout<<"vel:"<<ptcl->velocity[0]<<" "<<ptcl->velocity[1]<<" "<<ptcl->velocity[2]<<endl;
 	}
 }
 
@@ -492,25 +499,68 @@ bool MpmCore::for_each_frame(int ithFrame, float deltaTime, int nSubstep)
 			return false;
 		}
 	}
-	
+
+	clock_t t0 = clock();
+	clock_t t1 = t0;
+	int msArray[8] = {0,0,0,0, 0,0,0,0};
 	ctrl_params.deltaT = deltaTime / nSubstep;
 	for (int ithStep = 0; ithStep < nSubstep; ++ithStep)
 	{
 		if(ctrl_params.frame!=0)
+		{
 			from_particles_to_grid();
+			t1 = clock();
+			msArray[0] += t1 - t0;
+			t0 = t1;
+		}
 
 		if(ctrl_params.frame==0)
+		{
 			init_particle_volume_velocity();
+			t1 = clock();
+			msArray[1] += t1 - t0;
+			t0 = t1;
+		}
 
 		compute_grid_velocity();
+		t1 = clock();
+		msArray[2] += t1 - t0;
+		t0 = t1;
+
 		solve_grid_collision();
+		t1 = clock();
+		msArray[3] += t1 - t0;
+		t0 = t1;
+
 		compute_deformation_gradient_F();
+		t1 = clock();
+		msArray[4] += t1 - t0;
+		t0 = t1;
+
 		from_grid_to_particle();
+		t1 = clock();
+		msArray[5] += t1 - t0;
+		t0 = t1;
+
 		solve_particle_collision();
+		t1 = clock();
+		msArray[6] += t1 - t0;
+		t0 = t1;
 
 		update_position();
+		t1 = clock();
+		msArray[7] += t1 - t0;
+		t0 = t1;
 	}
 
+	PRINT_F("from_particles_to_grid:		%f", float(msArray[0])/CLOCKS_PER_SEC);
+	PRINT_F("init_particle_volume_velocity:	%f", float(msArray[1])/CLOCKS_PER_SEC);
+	PRINT_F("compute_grid_velocity:			%f", float(msArray[2])/CLOCKS_PER_SEC);
+	PRINT_F("solve_grid_collision:			%f", float(msArray[3])/CLOCKS_PER_SEC);
+	PRINT_F("compute_deformation_gradient:	%f", float(msArray[4])/CLOCKS_PER_SEC);
+	PRINT_F("from_grid_to_particle:			%f", float(msArray[5])/CLOCKS_PER_SEC);
+	PRINT_F("solve_particle_collision:		%f", float(msArray[6])/CLOCKS_PER_SEC);
+	PRINT_F("update_position:				%f", float(msArray[7])/CLOCKS_PER_SEC);
 	ctrl_params.frame++;
 
 	// 将模拟结果记下来
