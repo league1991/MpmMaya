@@ -486,18 +486,15 @@ bool MpmCore::for_each_frame(int ithFrame, float deltaTime, int nSubstep)
 {
 	// 更新粒子位置
 	int start = m_recorder.getStartFrame();
-	if(ithFrame != start)
+	MpmStatus status;
+	bool res = m_recorder.getStatus(ithFrame, status);
+	if (res)
 	{
-		MpmStatus status;
-		bool res = m_recorder.getStatus(ithFrame, status);
-		if (res)
-		{
-			res = status.copy(particles);
-		}
-		if (!res)
-		{
-			return false;
-		}
+		res = status.copy(particles);
+	}
+	if (!res)
+	{
+		return false;
 	}
 
 	clock_t t0 = clock();
