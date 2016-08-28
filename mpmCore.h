@@ -18,18 +18,25 @@ struct GridNode
 
 	GridNode();
 };
+
 struct GridField
 {
+	GridNode* gridBuffer;
 	boost::multi_array<GridNode*,3> grids;
 	Vector3f grid_size;//interval grid_dims
 	Vector3f grid_min, grid_max;
-	Vector3i grid_division;//int
+	int		 grid_division[3];//int
 	int		 boundary;
 
 	GridField();
 	~GridField();
 
 	void clear();
+	inline GridNode* getNode(int xi, int yi, int zi)
+	{
+		return gridBuffer + zi*grid_division[0]*grid_division[1]+
+			yi * grid_division[0] + xi;
+	}
 
 	GridField(const Vector3f& grid_size, const Vector3f& grid_min, const Vector3i& grid_division, int boundary);
 };
@@ -137,7 +144,12 @@ private:
 
 	GridField*			grid;
 
-	bool inGrid(Vector3i& index, Vector3i& grid_division);
+	inline bool inGrid(Vector3i& index, int grid_division[] )
+	{
+		return	index[0]>=0 && index[0]<grid_division[0] &&
+				index[1]>=0 && index[1]<grid_division[1] &&
+				index[2]>=0 && index[2]<grid_division[2];
+	}
 
 	void clear();
 
@@ -156,6 +168,7 @@ private:
 
 	//step 1 transfer mass and velocity to grid. And compute force of grid according to (6)
 	void from_particles_to_grid();
+	void parallel_from_particles_to_grid();
 
 	//step 3 4 compute grid force and update grid velocity
 	void compute_grid_velocity();
@@ -173,9 +186,11 @@ private:
 
 	//step 7 update deformation gradient
 	void compute_deformation_gradient_F();
+	void parallel_compute_deformation_gradient_F();
 
 	//step 8 transfer velocity to particle
 	void from_grid_to_particle();
+	void parallel_from_grid_to_particle();
 
 	//step 9 handle particle collision
 	void solve_particle_collision();
