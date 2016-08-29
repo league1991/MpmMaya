@@ -106,18 +106,19 @@ Matrix3f MpmCore::cauchy_stress( Matrix3f& Fe, Matrix3f& Fp, float particle_volu
 	float det_fp=Fp.determinant();
 
 	//formula 2
-	float miu=exp(ctrl_params.hardening*(1-det_fp))*ctrl_params.miu;
-	float lambda=exp(ctrl_params.hardening*(1-det_fp))*ctrl_params.lambda;
+	float factor= exp(ctrl_params.hardening*(1-det_fp));
+	float miu   = factor*ctrl_params.miu;
+	float lambda= factor*ctrl_params.lambda;
 
 	//polar decomposition FE=RE SE
 	Eigen::JacobiSVD<Eigen::Matrix3f> svd(Fe, Eigen::ComputeFullU| Eigen::ComputeFullV);
-	Eigen::Matrix3f Re=svd.matrixU()*svd.matrixV().transpose();
+	Eigen::Matrix3f Re = svd.matrixU()*svd.matrixV().transpose();
 
 	Matrix3f I;
 	I.setIdentity();
 	//???? dx of fomular 1
 	//return (Fe-Re)*Fe.transpose()*2*miu + Matrix3f(lambda*det_fe*(det_fe-1));
-	return ((Fe-Re)*Fe.transpose()*2*miu + I*(lambda*det_fe*(det_fe-1)))*particle_volume*-1;
+	return ((Fe-Re)*Fe.transpose()*(2*miu) + I*(lambda*det_fe*(det_fe-1)))*(particle_volume*-1);
 }
 
 void MpmCore::init_particle_volume_velocity()
@@ -171,6 +172,7 @@ void MpmCore::init_particle_volume_velocity()
 
 void MpmCore::parallel_from_particles_to_grid()
 {
+	//clock_t t0 = clock(), t1;
 	int totalCell = grid->grid_division[0] * grid->grid_division[1] * grid->grid_division[2];
 	tbb::parallel_for(tbb::blocked_range<int>(0, totalCell, 2500), [&](tbb::blocked_range<int>& r)
 	{
@@ -184,6 +186,10 @@ void MpmCore::parallel_from_particles_to_grid()
 			pCell->active=false;
 		}
 	});
+
+// 	t1 = clock();
+// 	PRINT_F("--init %f s", (t1-t0)/ float(CLOCKS_PER_SEC));
+// 	t0 = t1;
 	
 	std::vector<ParticleTemp>& ptclTemp = m_particleTemp;
 	if (m_particleTemp.size() != particles.size())
@@ -214,7 +220,13 @@ void MpmCore::parallel_from_particles_to_grid()
 					for(int x=-neighbour; x<=neighbour;x++, ithNeigh++)
 					{
 						Vector3i index=p_grid_index_i+Vector3i(x,y,z);
-						if(inGrid(index, grid->grid_division))
+						if     (index[0] < 0 && index[0] >= grid->grid_division[0])
+							ptclRes.weightX[x+neighbour] = -1.f;
+						else if(index[1] < 0 && index[1] >= grid->grid_division[1])
+							ptclRes.weightY[y+neighbour] = -1.f;
+						else if(index[2] < 0 && index[2] >= grid->grid_division[2])
+							ptclRes.weightZ[z+neighbour] = -1.f;
+						else
 						{
 							Vector3f xp=(ptcl->position - grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2])) - 
 								grid->grid_min).cwiseQuotient(grid->grid_size);
@@ -226,18 +238,15 @@ void MpmCore::parallel_from_particles_to_grid()
 							Vector3f gradientWeight = weight_gradientF(xp).cwiseQuotient(grid->grid_size);
 							ptclRes.gradientWeight[ithNeigh] = cauchyStress * gradientWeight;
 						}
-						else
-						{
-							//ptclRes.weight[ithNeigh] = -1.f;
-							ptclRes.weightX[x+neighbour]= -1.f;
-							ptclRes.weightY[y+neighbour]= -1.f;
-							ptclRes.weightZ[z+neighbour]= -1.f;
-						}
 					}
 				}
 			}
 		}
 	});
+	
+// 	t1 = clock();
+// 	PRINT_F("--ptcl 2 grid parallel %f s", (t1-t0)/ float(CLOCKS_PER_SEC));
+// 	t0 = t1;
 
 	const int nx = grid->grid_division[0];
 	const int ny = grid->grid_division[1];
@@ -257,7 +266,9 @@ void MpmCore::parallel_from_particles_to_grid()
 				for(int x=-neighbour; x<=neighbour;x++, ithNeigh++, pCell++)
 				{
 					//if(ptclRes.weight[ithNeigh] > 0.f)
-					if (ptclRes.weightX[x+neighbour] > 0.f && ptclRes.weightY[y+neighbour] > 0.f && ptclRes.weightZ[z+neighbour] > 0.f)
+					if (ptclRes.weightX[x+neighbour] > 0.f && 
+						ptclRes.weightY[y+neighbour] > 0.f && 
+						ptclRes.weightZ[z+neighbour] > 0.f)
 					{						
 						// float weight_p = ptclRes.weight[ithNeigh]* ptcl->pmass;
 						float weight_p = ptclRes.weightX[x+neighbour] * ptclRes.weightY[y+neighbour] * ptclRes.weightZ[z+neighbour] * ptcl->pmass;
@@ -271,6 +282,10 @@ void MpmCore::parallel_from_particles_to_grid()
 			}
 		}
 	}
+
+
+// 	t1 = clock();
+// 	PRINT_F("--collect %f s", (t1-t0)/ float(CLOCKS_PER_SEC));
 }
 
 void MpmCore::from_particles_to_grid()
