@@ -168,32 +168,25 @@ void MpmCore::init_particle_volume_velocity()
 
 void MpmCore::parallel_from_particles_to_grid()
 {
-	for(int x=0;x<grid->grid_division[0];x++)
+	int totalCell = grid->grid_division[0] * grid->grid_division[1] * grid->grid_division[2];
+	tbb::parallel_for(tbb::blocked_range<int>(0, totalCell, 2500), [&](tbb::blocked_range<int>& r)
 	{
-		for(int y=0;y<grid->grid_division[1];y++)
+		GridNode* pCell = grid->getNode(0,0,0) + r.begin();
+		for(int idx = r.begin(); idx != r.end(); idx++, pCell++)
 		{
-			for(int z=0;z<grid->grid_division[2];z++)
-			{
-				GridNode* pCell = grid->getNode(x,y,z);
-				pCell->mass=0;
-				pCell->external_force.setZero();
-				pCell->velocity_old.setZero();
-				pCell->velocity_new.setZero();
-				pCell->active=false;
-			}
+			pCell->mass=0;
+			pCell->external_force.setZero();
+			pCell->velocity_old.setZero();
+			pCell->velocity_new.setZero();
+			pCell->active=false;
 		}
-	}
-
-	const int neighbour = 2;
-	const int neighbourCube = (neighbour*2+1)*(neighbour*2+1)*(neighbour*2+1);
-	struct ParticleTemp
+	});
+	
+	std::vector<ParticleTemp>& ptclTemp = m_particleTemp;
+	if (m_particleTemp.size() != particles.size())
 	{
-		Matrix3f cauchyStress;
-		Vector3f gradientWeight[neighbourCube];
-		float	 weight[neighbourCube];
-	};
-	std::vector<ParticleTemp> ptclTemp;
-	ptclTemp.resize(particles.size());
+		ptclTemp.resize(particles.size());
+	}
 
 	tbb::parallel_for(tbb::blocked_range<int>(0, particles.size(), 2500), [&](tbb::blocked_range<int>& r)
 	{
@@ -1035,6 +1028,7 @@ void MpmCore::clear()
 		}
 	}
 	particles.clear();
+	m_particleTemp.clear();
 }
 
 StatusRecorder& MpmCore::getRecorder()

@@ -138,8 +138,18 @@ public:
 	bool	commitInit(int ithFrame);
 	StatusRecorder&		getRecorder();
 private:
+	static const int neighbour = 2;
+	static const int neighbourCube = (neighbour*2+1)*(neighbour*2+1)*(neighbour*2+1);
+	struct ParticleTemp
+	{
+		Matrix3f cauchyStress;
+		Vector3f gradientWeight[neighbourCube];
+		float	 weight[neighbourCube];
+	};
+
 	control_parameters	ctrl_params;
 	vector<Particle*>	particles;
+	vector<ParticleTemp>m_particleTemp;
 	StatusRecorder      m_recorder;
 
 	GridField*			grid;
