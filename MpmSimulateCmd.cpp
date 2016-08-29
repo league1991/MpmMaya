@@ -4,7 +4,8 @@ const char* MpmSimulateCmd::s_cmdName = "mpmSimulate";
 
 const char* MpmSimulateCmd::s_initFlag[2] = {"-init", "-i"};
 const char* MpmSimulateCmd::s_stepFlag[2] = {"-step", "-s"};
-const char* MpmSimulateCmd::m_nameFlag[2] = {"-name", "-n"};
+const char* MpmSimulateCmd::s_nameFlag[2] = {"-name", "-n"};
+const char* MpmSimulateCmd::s_numParticleFlag[2] = {"-numParticle", "-np"};
 
 MSyntax MpmSimulateCmd::newSyntax()
 {
@@ -12,13 +13,14 @@ MSyntax MpmSimulateCmd::newSyntax()
 	MStatus s;
 	s = syntax.addFlag(s_initFlag[1], s_initFlag[0], MSyntax::kNoArg);
 	s = syntax.addFlag(s_stepFlag[1], s_stepFlag[0], MSyntax::kNoArg);
+	s = syntax.addFlag(s_numParticleFlag[1], s_numParticleFlag[0], MSyntax::kNoArg);
 // 	s = syntax.addFlag(m_recordEleGFFlag[1], m_recordEleGFFlag[0], MSyntax::kNoArg);
 // 	s = syntax.addFlag(m_saveEleGFFlag[1], m_saveEleGFFlag[0], MSyntax::kString);
 // 	s = syntax.addFlag(m_intPntFlag[1], m_intPntFlag[0], MSyntax::kNoArg);
 // 	s = syntax.addFlag(m_surfPntFlag[1], m_surfPntFlag[0], MSyntax::kNoArg);
 // 	s = syntax.addFlag(m_createFlag[1], m_createFlag[0], MSyntax::kNoArg);
 // 	s = syntax.addFlag(m_stepStaticFlag[1], m_stepStaticFlag[0], MSyntax::kNoArg);
-// 	s = syntax.addFlag(m_nameFlag[1], m_nameFlag[0], MSyntax::kString);
+ 	s = syntax.addFlag(s_nameFlag[1], s_nameFlag[0], MSyntax::kString);
 // 	s = syntax.addFlag(m_hessianFlag[1], m_hessianFlag[0], MSyntax::kDouble, MSyntax::kDouble);
 // 	s = syntax.addFlag(m_gradFlag[1], m_gradFlag[0], MSyntax::kDouble, MSyntax::kDouble);
 // 	s = syntax.addFlag(m_saveFlag[1], m_saveFlag[0], MSyntax::kString);
@@ -40,10 +42,10 @@ MStatus MpmSimulateCmd::doIt( const MArgList& args )
 	MSyntax syn = syntax();
 	MArgDatabase argData(syn, args);
 	setResult(0);
-	if (argData.isFlagSet(m_nameFlag[1], &s))
+	if (argData.isFlagSet(s_nameFlag[1], &s))
 	{
 		MString nodeName;											// 提取某个名字的节点
-		s = argData.getFlagArgument(m_nameFlag[1],0, nodeName);
+		s = argData.getFlagArgument(s_nameFlag[1],0, nodeName);
 		s = MGlobal::getSelectionListByName(nodeName, selection);
 	}
 	else
@@ -52,7 +54,7 @@ MStatus MpmSimulateCmd::doIt( const MArgList& args )
 
 	bool isInitFlagSet = argData.isFlagSet(s_initFlag[1], &s);
 	bool isStepFlagSet = argData.isFlagSet(s_stepFlag[1], &s);
-
+	bool isNumPtclFlagSet = argData.isFlagSet(s_numParticleFlag[1], &s);
 
 	MItSelectionList pSel(selection, MFn::kDependencyNode , &s);
 	MObject obj;
@@ -83,6 +85,13 @@ MStatus MpmSimulateCmd::doIt( const MArgList& args )
 			else if (isStepFlagSet)
 			{
 				res &= node->stepSolver();
+			}
+			else if (isNumPtclFlagSet)
+			{
+				int n = node->getNumSampledParticle();
+				PRINT_F("n ptcl: %d", n);
+				setResult(n);
+				return MS::kSuccess;
 			}
 
 			if (res)

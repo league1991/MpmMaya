@@ -21,12 +21,24 @@ MObject	MpmSimulator::s_friction;
 MObject	MpmSimulator::s_flip;
 MObject	MpmSimulator::s_gravity;
 MObject	MpmSimulator::s_deltaT;
+MObject	MpmSimulator::s_nSubStep;
 MObject MpmSimulator::s_initParticle;
 MObject MpmSimulator::s_initType;
 
 MObject MpmSimulator::s_initTrans0;
 MObject MpmSimulator::s_initTrans1;
 MObject MpmSimulator::s_initDeltaTime;
+MObject MpmSimulator::s_outputParticle;
+MObject MpmSimulator::s_inputParticle;
+MObject MpmSimulator::s_sampleRate;
+MObject MpmSimulator::s_particleStr;
+MObject MpmSimulator::s_numSampledParticle;
+
+const char* MpmSimulator::s_numSampledParticleName[2]={"numSampledParticle","nsplptcl"};
+const char* MpmSimulator::s_particleStrName[2]={"particleName","ptclname"};
+const char* MpmSimulator::s_sampleRateName[2]={"particleSampleRate","psplrt"};
+const char* MpmSimulator::s_outputParticleName[2]={"outputParticle", "outptcl"};
+const char* MpmSimulator::s_inputParticleName[2]={"inputParticle", "inptcl"};
 
 const char* MpmSimulator::s_boxMinName[2]={"boxMin","bMin"};
 const char* MpmSimulator::s_boxMaxName[2]={"boxMax","bMax"};
@@ -44,6 +56,7 @@ const char*	MpmSimulator::s_frictionName[2]={"friction","fr"};
 const char*	MpmSimulator::s_flipName[2]={"flipPercent","fp"};
 const char*	MpmSimulator::s_gravityName[2]={"gravity","gr"};
 const char*	MpmSimulator::s_deltaTName[2]={"deltaTime","dt"};
+const char* MpmSimulator::s_nSubStepName[2]={"numberOfSubsteps","noss"};
 const char* MpmSimulator::s_initParticleName[2]={"initParticle","iptl"};
 const char* MpmSimulator::s_initTypeName[2]={"initType","intp"};
 
@@ -223,9 +236,83 @@ MBoundingBox MpmSimulator::boundingBox() const
 	return m_box;
 }
 
+int  MpmSimulator::getNumSampledParticle()
+{
+	MPlug samplePlug= Global::getPlug(this, s_sampleRateName[0]);
+	int curFrame = getCurFrame();
+	MpmStatus status;
+	bool res = m_core.getRecorder().getStatus(curFrame, status);
+	if (!res || status.getParticleCount() <= 0)
+		return 0;
+	int sampleRate = samplePlug.asInt();
+	int sampledNum = (status.getParticleCount()-1)/sampleRate+1;
+	PRINT_F("total ptcl: %d sampled ptcl: %d", status.getParticleCount(), sampledNum);
+	return sampledNum;
+}
+
 MStatus MpmSimulator::compute( const MPlug& plug, MDataBlock& data )
 {
 	MStatus s;
+	if (plug == s_outputParticle)
+	{
+		MPlug inputPlug = Global::getPlug(this, s_inputParticleName[0]);
+		MPlug outputPlug= Global::getPlug(this, s_outputParticleName[0]);
+		MPlug samplePlug= Global::getPlug(this, s_sampleRateName[0]);
+
+		if (inputPlug.isConnected() && outputPlug.isConnected())
+		{
+			MObject inputObj = inputPlug.asMObject();
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+
+			MFnNObjectData inputFn(inputObj, &s);
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+
+			MnParticle* inputPtr = inputFn.getParticleObjectPtr(&s);
+			PRINT_F("input ptr %p", inputPtr);
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+			if (!inputPtr)
+				goto COMPUTE_END;
+
+			int count = getNumSampledParticle();
+			if (count <= 0)
+				goto COMPUTE_END;
+			inputPtr->setTopology(count);
+
+			MFloatPointArray positionList, velocityList;
+			s=inputPtr->getPositions(positionList);
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+			s=inputPtr->getVelocities(velocityList);
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+
+			MpmStatus status;
+			bool res = m_core.getRecorder().getStatus(getCurFrame(), status);
+			int sampleRate = samplePlug.asInt();
+			PRINT_F("sampleRate %d, count %d", sampleRate, count);
+			for (int ithPos = 0, ithSample = 0; ithPos < count; ithPos++, ithSample += sampleRate)
+			{
+				Vector3f newPos, newVel;
+				status.getParticlePos(ithSample, newPos);
+				status.getParticleVelocity(ithSample, newVel);
+				positionList[ithPos] = MFloatPoint(newPos[0],newPos[1],newPos[2],1.f);
+				velocityList[ithPos] = MFloatPoint(newVel[0],newVel[1],newVel[2],1.f);
+			}
+			s=inputPtr->setPositions(positionList);
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+			s=inputPtr->setVelocities(velocityList);
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+
+			outputPlug.setMObject(inputObj);
+		}
+	}
+	else if (plug == s_numSampledParticle)
+	{
+		int frame = getCurFrame();
+		MPlug numPtclPlug = Global::getPlug(this, s_numSampledParticleName[0]);
+		numPtclPlug.setInt(getNumSampledParticle());
+	}
+
+COMPUTE_END:
+	data.setClean(plug);
 	return s;
 }
 
@@ -244,6 +331,7 @@ MStatus MpmSimulator::initialize()
 	MFnUnitAttribute	uAttr;
 	MFnCompoundAttribute cAttr;
 
+	// solver param
 	{
 		s_boxMin = nAttr.create(s_boxMinName[0], s_boxMinName[1], MFnNumericData::k3Float, -2, &s);
 		nAttr.setStorable(true);
@@ -257,14 +345,14 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_boxMax);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_cellSize = nAttr.create(s_cellSizeName[0], s_cellSizeName[1], MFnNumericData::k3Float, 0.1, &s);
+		s_cellSize = nAttr.create(s_cellSizeName[0], s_cellSizeName[1], MFnNumericData::k3Float, 0.25, &s);
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
 		nAttr.setMin(0.01);
 		s = addAttribute(s_cellSize);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_nParticlePerCell = nAttr.create(s_nParticlePerCellName[0], s_nParticlePerCellName[1], MFnNumericData::kShort, 2, &s);
+		s_nParticlePerCell = nAttr.create(s_nParticlePerCellName[0], s_nParticlePerCellName[1], MFnNumericData::kShort, 8, &s);
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
 		nAttr.setMin(1);
@@ -280,7 +368,7 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_boundary);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
-
+	// physical param
 	{
 		s_particleDensity = nAttr.create(s_particleDensityName[0], s_particleDensityName[1], MFnNumericData::kFloat, 400, &s);
 		nAttr.setMin(1e-5);
@@ -352,14 +440,23 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_gravity);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
-		s_deltaT = nAttr.create(s_deltaTName[0], s_deltaTName[1], MFnNumericData::kFloat, 0.001f, &s);
+		s_deltaT = nAttr.create(s_deltaTName[0], s_deltaTName[1], MFnNumericData::kFloat, 1.0/24.f, &s);
 		nAttr.setMin(1e-3);
 		nAttr.setMax(10);
 		nAttr.setSoftMin(0.01);
 		nAttr.setSoftMax(0.1);
 		s = addAttribute(s_deltaT);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_nSubStep = nAttr.create(s_nSubStepName[0], s_nSubStepName[1], MFnNumericData::kInt, 5, &s);
+		nAttr.setMin(1);
+		nAttr.setMax(1e4);
+		nAttr.setSoftMin(1);
+		nAttr.setSoftMax(15);
+		s = addAttribute(s_nSubStep);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
+	// init param
 	{
 		s_initParticle = tAttr.create(s_initParticleName[0], s_initParticleName[1], MFnData::kPlugin, &s);
 		tAttr.setReadable(false);
@@ -409,6 +506,49 @@ MStatus MpmSimulator::initialize()
 		nAttr.setSoftMax(0.1);
 		s = addAttribute(s_initDeltaTime);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
+	}
+	// particle baking
+	{
+		s_numSampledParticle = nAttr.create(s_numSampledParticleName[0], s_numSampledParticleName[1], MFnNumericData::kInt, 20, &s);
+		nAttr.setHidden(false);
+		nAttr.setWritable(false);
+		nAttr.setKeyable(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_numSampledParticle);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_particleStr = tAttr.create(s_particleStrName[0], s_particleStrName[1], MFnData::kString, &s);
+		tAttr.setHidden(false);
+		tAttr.setStorable(true);
+		s = addAttribute(s_particleStr);
+
+		s_inputParticle = tAttr.create(s_inputParticleName[0], s_inputParticleName[1], MFnData::kNObject, &s);
+		tAttr.setReadable(false);
+		tAttr.setHidden(false);
+		tAttr.setAffectsAppearance(true);
+		s = addAttribute(s_inputParticle);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_outputParticle= tAttr.create(s_outputParticleName[0], s_outputParticleName[1], MFnData::kNObject, &s);
+		tAttr.setWritable(false);
+		tAttr.setHidden(false);
+		tAttr.setAffectsAppearance(true);
+		s = addAttribute(s_outputParticle);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_sampleRate = nAttr.create(s_sampleRateName[0], s_sampleRateName[1], MFnNumericData::kInt, 20, &s);
+		nAttr.setMin(1);
+		nAttr.setMax(1000000);
+		nAttr.setSoftMin(1);
+		nAttr.setSoftMax(100);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_sampleRate);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		attributeAffects(s_inputParticle, s_outputParticle);
+		attributeAffects(s_sampleRate, s_outputParticle);
+		attributeAffects(s_sampleRate, s_numSampledParticle);
 	}
 	return s;
 }
@@ -559,9 +699,18 @@ bool MpmSimulator::initParticle()
 
 bool MpmSimulator::stepSolver()
 {
+	MPlug deltaTPlug = Global::getPlug(this, s_deltaTName[0]);
+	MPlug nSubstepPlug = Global::getPlug(this, s_nSubStepName[0]);
 	int frame = getCurFrame();
-	return m_core.for_each_frame(frame);
+	return m_core.for_each_frame(frame, deltaTPlug.asFloat(), nSubstepPlug.asInt());
 }
+
+
+
+
+
+
+
 
 
 

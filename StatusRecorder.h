@@ -9,6 +9,9 @@ public:
 	~MpmStatus();
 	void				draw();
 	bool				copy(const vector<Particle*>& particles);
+	int					getParticleCount();
+	void			    getParticlePos(int idx, Vector3f& pos);
+	void				getParticleVelocity( int idx, Vector3f& vel);
 private:
 	vector<Particle>	m_particles;
 };

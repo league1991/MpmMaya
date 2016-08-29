@@ -60,6 +60,8 @@ typedef Eigen::Vector3i	Vector3i;
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MFnCompoundAttribute.h>
+#include <maya/MFnNObjectData.h>
+#include <maya/MnParticle.h>
 
 #undef isnan
 

@@ -7,13 +7,13 @@ using namespace std;
 
 struct GridNode
 {
-	float mass;
 	Vector3f velocity_new;
 	Vector3f velocity_old;
-	//float density;
-	float collision_sdf;
 	Vector3f collision_velocity;
 	Vector3f external_force;
+	//float density;
+	float collision_sdf;
+	float mass;
 	bool active;
 
 	GridNode();
@@ -88,7 +88,7 @@ public:
 	void	addBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
 	void	addTwoBalls(int nParticlePerCell = 1);
 
-	bool	for_each_frame(int ithFrame);
+	bool	for_each_frame(int ithFrame, float deltaTime, int nSubstep = 1);
 
 	const vector<Particle*>& getParticle();
 	void	getGridConfig(Vector3f& minPnt, Vector3f& cellSize, Vector3i& cellNum);

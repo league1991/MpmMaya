@@ -5,14 +5,13 @@ struct Particle
 	Matrix3f Fe;
 	Matrix3f Fp;
 	Vector3f velocity;
-	float volume;
 	//float density;
 	//boost::array<float,64> weight;
 	//boost::array<Vector3f,64> F_weight;
 	Vector3f position;
+	float volume;
 	float pmass;
 	int pid;
-
 	bool isValid;
 
 	Vector3f getGridIdx(Vector3f& grid_min,Vector3f& grid_size)

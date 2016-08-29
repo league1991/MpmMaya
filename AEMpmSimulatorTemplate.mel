@@ -1,9 +1,57 @@
 
+global proc string getNodeShape(string $attrName)
+{
+	string $nodeName = `plugNode $attrName`;
+	$nodeNameType = `ls -showType $nodeName`;
+	if ($nodeNameType == "transform")
+	{
+		$nodeName = `listRelatives -shapes $nodeName`;
+	}
+	return $nodeName;
+}
+
 global proc initSimulator(string $nodeName)
 {	
 	// execute
 	//print("nodeName:" + $nodeName)
-	mpmSimulate -init -name $nodeName;	
+	mpmSimulate -init -name $nodeName;
+		
+	string $ptcl      = `getAttr ($nodeName + ".particleName")`;
+	string $ptclShape = "";
+	if(`size($ptcl)` != 0 && `objExists $ptcl` != 0)
+	{
+		$ptclShape = getFirstShape($ptcl);
+	}
+	if(`size($ptclShape)` != 0 && `objExists $ptclShape` != 0)
+	{
+		int $frame = `currentTime -q`;
+		int $numPtcl = `mpmSimulate -numParticle -name $nodeName`;//  `getAttr ($nodeName + ".numSampledParticle")`;
+		if($frame == 1)
+		{
+			currentTime 2;
+		}
+		clearParticleStartState $ptclShape; 
+		currentTime 1;
+		
+		print("num ptcl:" + $numPtcl);
+		int $i;	
+		string $emitCmd = ("emit -object " + $ptclShape + "\n");
+		for($i = 0; $i < $numPtcl; ++$i)
+		{
+			//emit -object $ptclShape -pos 0 0 0;
+			//vector $pos = sphrand(10);
+			//$emitCmd += " -pos "+$pos+"\n";
+			$emitCmd += " -pos 0 0 0\n";
+		}
+		if($numPtcl > 0)
+		{
+			eval( $emitCmd );
+		}		
+		// go back to current frame and set it as initial state
+		currentTime $frame;
+		saveInitialState $ptclShape;
+	}
+	
 	refresh -f;
 }
 // type: simulation type 
@@ -71,7 +119,7 @@ global proc saveSimulationData(string $nodeName)
 
 // simulation buttons
 global proc initSimulatorControl(string $attrName)
-{
+{	
 	string $nodeName = `plugNode $attrName`;
 	setUITemplate -pst "attributeEditorTemplate";
 		button -label "Initialize" -c ("initSimulator " + $nodeName) initButton;
@@ -81,6 +129,7 @@ global proc initSimulatorControl(string $attrName)
 						-fieldMinValue  1 -fieldMaxValue  10000
 						-value 100
 						simLengthSlider;
+		
 		button -label "Simulate" -c ("execSimulator " + $nodeName + " 0") simButton;
 		button -label "Save Simulation Result" -c ("saveSimulationData " + $nodeName) saveButton;
 	setUITemplate -ppt;
@@ -92,6 +141,51 @@ global proc modifySimulatorControl(string $attrName)
 	button -e -c ("initSimulator " + $nodeName) initButton;	
 	button -e -c ("execSimulator " + $nodeName + " 0") simButton;
 	button -e -c ("saveSimulationData " + $nodeName) saveButton;
+}
+
+// particle buttons
+global proc string getFirstShape(string $transformName)
+{
+	string $shapes[]    = `listRelatives -shapes $transformName`;
+	return $shapes[0];
+}
+
+global proc buildOrUpdateParticleData(string $nodeName)
+{	
+	print("nodename");
+	print($nodeName);
+	string $ptcl      = `getAttr ($nodeName + ".particleName")`;
+	if(`size $ptcl` == 0)
+	{
+		confirmDialog -title "Error" -message "Please enter particle name." -button "OK";
+		return;
+	}
+	// if object not exist, create one
+	if(`objExists $ptcl` == 0)
+	{
+		nParticle -name $ptcl;
+	}
+	
+	// add attribute 
+	string $ptclShape = getFirstShape($ptcl);	
+	$nextPlug = `listConnections -type nucleus -plugs true ($ptclShape+".nextState")`;
+	if (`size $nextPlug` != 0)
+	{
+		connectAttr -f $nextPlug ($nodeName + ".inputParticle");
+		connectAttr -f ($nodeName + ".outputParticle") ($ptclShape+".nextState");
+	}
+}
+global proc initParticleControl(string $attrName)
+{
+	string $nodeName = `plugNode $attrName`;
+	setUITemplate -pst "attributeEditorTemplate";		
+		button -label "Build or Update Particle Data" -c ("buildOrUpdateParticleData " + $nodeName) particleButton;
+	setUITemplate -ppt;
+}
+global proc modifyParticleControl(string $attrName)
+{
+	string $nodeName = `plugNode $attrName`;
+	button -e -c ("buildOrUpdateParticleData " + $nodeName) particleButton;
 }
 
 // main
@@ -119,16 +213,25 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 			editorTemplate -addControl "particlePerCell";
 			editorTemplate -addControl "boundary";
 			editorTemplate -addControl "initType";
+			editorTemplate -addControl "numberOfSubsteps";
 			editorTemplate -callCustom "initSimulatorControl" "modifySimulatorControl" "noAttr";
 
-			editorTemplate -beginLayout "Initial Velocity" -collapse false;		
+			editorTemplate -beginLayout "Initial Velocity" -collapse true;		
 				editorTemplate -addControl "initStartTransform";
 				editorTemplate -addControl "initEndTransform";
 				editorTemplate -addControl "initDeltaTime";
 			editorTemplate -endLayout;
 		editorTemplate -endLayout;
-				
+		
 		editorTemplate -suppress "initParticle";
+		editorTemplate -suppress "inputParticle";
+		editorTemplate -suppress "outputParticle";
+		editorTemplate -beginLayout "Output NParticle" -collapse false;
+			editorTemplate -addControl "particleName";
+			editorTemplate -addControl "particleSampleRate";
+			editorTemplate -addControl "numSampledParticle";
+			editorTemplate -callCustom "initParticleControl" "modifyParticleControl" "noAttr";
+		editorTemplate -endLayout;
 		
 		editorTemplate -beginLayout (uiRes("m_AElocatorTemplate.kLocatorAttributes")) -collapse true;
 			AElocatorCommon $nodeName;
