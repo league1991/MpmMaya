@@ -268,7 +268,6 @@ MStatus MpmSimulator::compute( const MPlug& plug, MDataBlock& data )
 			CHECK_MSTATUS_AND_RETURN_IT(s);
 
 			MnParticle* inputPtr = inputFn.getParticleObjectPtr(&s);
-			PRINT_F("input ptr %p", inputPtr);
 			CHECK_MSTATUS_AND_RETURN_IT(s);
 			if (!inputPtr)
 				goto COMPUTE_END;

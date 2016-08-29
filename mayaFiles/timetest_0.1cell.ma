@@ -1,6 +1,6 @@
 //Maya ASCII 2016 scene
-//Name: timetest.ma
-//Last modified: Sun, Aug 28, 2016 12:44:18 PM
+//Name: timetest_0.1cell.ma
+//Last modified: Sun, Aug 28, 2016 12:44:56 PM
 //Codeset: 936
 requires maya "2016";
 requires -nodeType "MpmSimulator" -dataType "OpenVDBData" "openvdb_maya_plugin" "0.5";
@@ -76,6 +76,7 @@ createNode transform -n "MpmSimulator1";
 createNode MpmSimulator -n "MpmSimulatorShape1" -p "MpmSimulator1";
 	rename -uid "3854BC17-4F12-A1F6-42BD-6091B971C141";
 	setAttr -k off ".v";
+	setAttr ".cSize" -type "float3" 0.1 0.1 0.1 ;
 	setAttr ".ppc" 9;
 	setAttr ".noss" 9;
 	setAttr ".intp" 1;
@@ -165,7 +166,7 @@ createNode script -n "sceneConfigurationScriptNode";
 	setAttr ".b" -type "string" "playbackOptions -min 1 -max 120 -ast 1 -aet 200 ";
 	setAttr ".st" 6;
 createNode nodeGraphEditorInfo -n "MayaNodeEditorSavedTabsInfo";
-	rename -uid "B95575B1-49F2-860C-6793-6B8DBD1C0F91";
+	rename -uid "94612106-4183-12B3-A7AF-31A80187F4A3";
 	setAttr ".pee" yes;
 	setAttr ".tgi[0].tn" -type "string" "Untitled_1";
 	setAttr ".tgi[0].vl" -type "double2" -272.02379871455497 -267.26189414187127 ;
@@ -228,4 +229,4 @@ connectAttr "uiConfigurationScriptNode.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].
 connectAttr "defaultRenderLayer.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[4].dn"
 		;
 connectAttr "defaultRenderLayer.msg" ":defaultRenderingList1.r" -na;
-// End of timetest.ma
+// End of timetest_0.1cell.ma

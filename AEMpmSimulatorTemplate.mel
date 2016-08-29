@@ -10,12 +10,8 @@ global proc string getNodeShape(string $attrName)
 	return $nodeName;
 }
 
-global proc initSimulator(string $nodeName)
-{	
-	// execute
-	//print("nodeName:" + $nodeName)
-	mpmSimulate -init -name $nodeName;
-		
+global proc initParticle(string $nodeName)
+{
 	string $ptcl      = `getAttr ($nodeName + ".particleName")`;
 	string $ptclShape = "";
 	if(`size($ptcl)` != 0 && `objExists $ptcl` != 0)
@@ -51,6 +47,15 @@ global proc initSimulator(string $nodeName)
 		currentTime $frame;
 		saveInitialState $ptclShape;
 	}
+}
+
+global proc initSimulator(string $nodeName)
+{	
+	// execute
+	//print("nodeName:" + $nodeName)
+	mpmSimulate -init -name $nodeName;
+		
+	initParticle($nodeName);
 	
 	refresh -f;
 }
@@ -151,9 +156,7 @@ global proc string getFirstShape(string $transformName)
 }
 
 global proc buildOrUpdateParticleData(string $nodeName)
-{	
-	print("nodename");
-	print($nodeName);
+{
 	string $ptcl      = `getAttr ($nodeName + ".particleName")`;
 	if(`size $ptcl` == 0)
 	{
@@ -174,6 +177,8 @@ global proc buildOrUpdateParticleData(string $nodeName)
 		connectAttr -f $nextPlug ($nodeName + ".inputParticle");
 		connectAttr -f ($nodeName + ".outputParticle") ($ptclShape+".nextState");
 	}
+	
+	initParticle($nodeName);
 }
 global proc initParticleControl(string $attrName)
 {
