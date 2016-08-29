@@ -219,13 +219,19 @@ void MpmCore::parallel_from_particles_to_grid()
 							Vector3f xp=(ptcl->position - grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2])) - 
 								grid->grid_min).cwiseQuotient(grid->grid_size);
 
-							ptclRes.weight[ithNeigh] = weight(xp) * ptcl->pmass;
+							//ptclRes.weight[ithNeigh] = weight(xp);
+							ptclRes.weightX[x+neighbour] = NX_bspline(xp[0]);
+							ptclRes.weightY[y+neighbour] = NX_bspline(xp[1]);
+							ptclRes.weightZ[z+neighbour] = NX_bspline(xp[2]);
 							Vector3f gradientWeight = weight_gradientF(xp).cwiseQuotient(grid->grid_size);
 							ptclRes.gradientWeight[ithNeigh] = cauchyStress * gradientWeight;
 						}
 						else
 						{
-							ptclRes.weight[ithNeigh] = -1.f;
+							//ptclRes.weight[ithNeigh] = -1.f;
+							ptclRes.weightX[x+neighbour]= -1.f;
+							ptclRes.weightY[y+neighbour]= -1.f;
+							ptclRes.weightZ[z+neighbour]= -1.f;
 						}
 					}
 				}
@@ -250,9 +256,11 @@ void MpmCore::parallel_from_particles_to_grid()
 			{
 				for(int x=-neighbour; x<=neighbour;x++, ithNeigh++, pCell++)
 				{
-					if(ptclRes.weight[ithNeigh] > 0.f)
-					{
-						float weight_p = ptclRes.weight[ithNeigh];
+					//if(ptclRes.weight[ithNeigh] > 0.f)
+					if (ptclRes.weightX[x+neighbour] > 0.f && ptclRes.weightY[y+neighbour] > 0.f && ptclRes.weightZ[z+neighbour] > 0.f)
+					{						
+						// float weight_p = ptclRes.weight[ithNeigh]* ptcl->pmass;
+						float weight_p = ptclRes.weightX[x+neighbour] * ptclRes.weightY[y+neighbour] * ptclRes.weightZ[z+neighbour] * ptcl->pmass;
 						pCell->mass += weight_p;
 						//now velocity is v*m. we need to divide m before use it
 						pCell->velocity_old += weight_p * ptcl->velocity;

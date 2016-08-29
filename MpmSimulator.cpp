@@ -355,7 +355,7 @@ MStatus MpmSimulator::initialize()
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
 		nAttr.setMin(1);
-		nAttr.setMax(20);
+		nAttr.setMax(200);
 		s = addAttribute(s_nParticlePerCell);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 

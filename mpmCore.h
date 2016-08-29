@@ -139,11 +139,15 @@ public:
 	StatusRecorder&		getRecorder();
 private:
 	static const int neighbour = 2;
-	static const int neighbourCube = (neighbour*2+1)*(neighbour*2+1)*(neighbour*2+1);
+	static const int neighbourWidth = neighbour*2+1;
+	static const int neighbourCube = neighbourWidth*neighbourWidth*neighbourWidth;
 	struct ParticleTemp
 	{
 		Vector3f gradientWeight[neighbourCube];
-		float	 weight[neighbourCube];
+		//float	 weight[neighbourCube];
+		float	 weightX[neighbourWidth];
+		float	 weightY[neighbourWidth];
+		float	 weightZ[neighbourWidth];
 		GridNode*cornerCell;
 	};
 
