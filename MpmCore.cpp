@@ -91,10 +91,13 @@ float MpmCore::weight( Vector3f& d_xp )
 
 Vector3f MpmCore::weight_gradientF( Vector3f& d_xp )
 {
+	float w0 = NX_bspline(d_xp[0]);
+	float w1 = NX_bspline(d_xp[1]);
+	float w2 = NX_bspline(d_xp[2]);
 	return Vector3f(
-		dNX_bsplineslope(d_xp[0])*NX_bspline(d_xp[1])*NX_bspline(d_xp[2]),
-		dNX_bsplineslope(d_xp[1])*NX_bspline(d_xp[2])*NX_bspline(d_xp[0]),
-		dNX_bsplineslope(d_xp[2])*NX_bspline(d_xp[0])*NX_bspline(d_xp[1]));
+		dNX_bsplineslope(d_xp[0])*w1*w2,
+		dNX_bsplineslope(d_xp[1])*w2*w0,
+		dNX_bsplineslope(d_xp[2])*w0*w1);
 }
 
 Matrix3f MpmCore::cauchy_stress( Matrix3f& Fe, Matrix3f& Fp, float particle_volume )
@@ -199,13 +202,16 @@ void MpmCore::parallel_from_particles_to_grid()
 
 			Vector3f p_grid_index_f=ptcl->getGridIdx(grid->grid_min,grid->grid_size);
 			Vector3i p_grid_index_i=ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
-			ptclRes.cauchyStress = cauchy_stress(ptcl->Fe, ptcl->Fp, ptcl->volume);
+			Matrix3f cauchyStress = cauchy_stress(ptcl->Fe, ptcl->Fp, ptcl->volume);
 
-			for(int z=-2, ithNeigh = 0; z<=2;z++)
+			Vector3i cornerIdx = p_grid_index_i + Vector3i(-neighbour,-neighbour,-neighbour);
+			ptclRes.cornerCell = grid->getNode(cornerIdx[0], cornerIdx[1], cornerIdx[2]);
+
+			for(int z=-neighbour, ithNeigh = 0; z<=neighbour;z++)
 			{
-				for(int y=-2; y<=2;y++)
+				for(int y=-neighbour; y<=neighbour;y++)
 				{
-					for(int x=-2; x<=2;x++, ithNeigh++)
+					for(int x=-neighbour; x<=neighbour;x++, ithNeigh++)
 					{
 						Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 						if(inGrid(index, grid->grid_division))
@@ -213,8 +219,9 @@ void MpmCore::parallel_from_particles_to_grid()
 							Vector3f xp=(ptcl->position - grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2])) - 
 								grid->grid_min).cwiseQuotient(grid->grid_size);
 
-							ptclRes.weight[ithNeigh] = weight(xp);
-							ptclRes.gradientWeight[ithNeigh] = weight_gradientF(xp).cwiseQuotient(grid->grid_size);
+							ptclRes.weight[ithNeigh] = weight(xp) * ptcl->pmass;
+							Vector3f gradientWeight = weight_gradientF(xp).cwiseQuotient(grid->grid_size);
+							ptclRes.gradientWeight[ithNeigh] = cauchyStress * gradientWeight;
 						}
 						else
 						{
@@ -226,31 +233,31 @@ void MpmCore::parallel_from_particles_to_grid()
 		}
 	});
 
+	const int nx = grid->grid_division[0];
+	const int ny = grid->grid_division[1];
+	const int w  = neighbour*2+1;
 	for(int pit=0;pit<particles.size();pit++)
 	{
 		if(!particles[pit]->isValid)
 			continue;
 		Particle* ptcl = particles[pit];
 		ParticleTemp& ptclRes = ptclTemp[pit];
-		Vector3i p_grid_index_i=ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
-		for(int z=-2, ithNeigh = 0; z<=2;z++)
+		GridNode* pCell = ptclRes.cornerCell;
+
+		for(int z=-neighbour, ithNeigh = 0; z<=neighbour; z++, pCell += nx*(ny-w))
 		{
-			for(int y=-2; y<=2;y++)
+			for(int y=-neighbour; y<=neighbour; y++, pCell += nx-w)
 			{
-				for(int x=-2; x<=2;x++, ithNeigh++)
+				for(int x=-neighbour; x<=neighbour;x++, ithNeigh++, pCell++)
 				{
 					if(ptclRes.weight[ithNeigh] > 0.f)
 					{
-						Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 						float weight_p = ptclRes.weight[ithNeigh];
-						Vector3f& gradient_weight= ptclRes.gradientWeight[ithNeigh];
-
-						GridNode* pCell = grid->getNode(index[0], index[1], index[2]);
-						pCell->mass += weight_p*ptcl->pmass;
+						pCell->mass += weight_p;
 						//now velocity is v*m. we need to divide m before use it
-						pCell->velocity_old += weight_p*ptcl->pmass*ptcl->velocity;
+						pCell->velocity_old += weight_p * ptcl->velocity;
 						//fomular 6
-						pCell->external_force += ptclRes.cauchyStress*gradient_weight;
+						pCell->external_force += ptclRes.gradientWeight[ithNeigh];
 					}
 				}
 			}
@@ -968,7 +975,7 @@ bool MpmCore::initGrid(const Vector3f& gridMin,
 				   int gridBoundary,
 				   int ithFrame)
 {
-	PRINT_F("gridnode size: %d  vector3f size %d", sizeof(GridNode), sizeof(Vector3f));
+	PRINT_F("particletemp size: %d  vector3f size %d", sizeof(ParticleTemp), sizeof(Vector3f));
 	clear();
 
 	ctrl_params.setting_1();

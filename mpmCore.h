@@ -142,9 +142,9 @@ private:
 	static const int neighbourCube = (neighbour*2+1)*(neighbour*2+1)*(neighbour*2+1);
 	struct ParticleTemp
 	{
-		Matrix3f cauchyStress;
 		Vector3f gradientWeight[neighbourCube];
 		float	 weight[neighbourCube];
+		GridNode*cornerCell;
 	};
 
 	control_parameters	ctrl_params;
