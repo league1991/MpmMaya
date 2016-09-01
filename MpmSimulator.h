@@ -75,6 +75,8 @@ private:
 	static MObject		s_vdbVoxelSize;
 	static MObject		s_vdbHalfWidth;
 	static MObject		s_vdbVolumeFactor;
+	static MObject		s_vdbRmin;
+	static MObject		s_vdbRmax;
 	static MObject		s_time;
 	static MObject		s_immediateUpdate;
 
@@ -111,6 +113,8 @@ private:
 	static const char*	s_vdbVoxelSizeName[2];
 	static const char*	s_vdbHalfWidthName[2];
 	static const char*	s_vdbVolumeFactorName[2];
+	static const char*  s_vdbRminName[2];
+	static const char*	s_vdbRmaxName[2];
 	static const char*	s_timeName[2];
 	static const char*  s_immediateUpdateName[2];
 };

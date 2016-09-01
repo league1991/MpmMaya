@@ -37,9 +37,13 @@ MObject MpmSimulator::s_outputVDB;
 MObject MpmSimulator::s_vdbHalfWidth;
 MObject MpmSimulator::s_vdbVoxelSize;
 MObject MpmSimulator::s_vdbVolumeFactor;
+MObject	MpmSimulator::s_vdbRmin;
+MObject	MpmSimulator::s_vdbRmax;
 MObject MpmSimulator::s_time;
 MObject MpmSimulator::s_immediateUpdate;
 
+const char* MpmSimulator::s_vdbRminName[2]={"minParticleRadius", "minptclr"};
+const char* MpmSimulator::s_vdbRmaxName[2]={"maxParticleRadius", "maxptclr"};
 const char* MpmSimulator::s_immediateUpdateName[2]={"immediateUpdate", "imupdate"};
 const char* MpmSimulator::s_timeName[2]={"time", "time"};
 const char* MpmSimulator::s_vdbVolumeFactorName[2]={"vdbVolumeFactor", "vdbvftr"};
@@ -362,6 +366,10 @@ MStatus MpmSimulator::computeVDB(openvdb::FloatGrid::Ptr& ls, float voxelSize, f
 	ls = openvdb::createLevelSet<openvdb::FloatGrid>(voxelSize, halfWidth);
 	openvdb::tools::ParticlesToLevelSet<openvdb::FloatGrid> raster(*ls);
 
+	MPlug rminPlug = Global::getPlug(this, s_vdbRminName[0]);
+	MPlug rmaxPlug = Global::getPlug(this, s_vdbRmaxName[0]);
+	raster.setRmin(min(rminPlug.asFloat(), rmaxPlug.asFloat()));
+	raster.setRmax(max(rminPlug.asFloat(), rmaxPlug.asFloat()));
 	raster.setGrainSize(1);//a value of zero disables threading
 	raster.rasterizeSpheres(pa);
 	raster.finalize();
@@ -711,7 +719,7 @@ MStatus MpmSimulator::initialize()
 
 
 		s_vdbVoxelSize = nAttr.create(s_vdbVoxelSizeName[0], s_vdbVoxelSizeName[1], MFnNumericData::kFloat, 0.3, &s);
-		nAttr.setMin(0.02);
+		nAttr.setMin(0.001);
 		nAttr.setMax(1000000);
 		nAttr.setSoftMin(0.1);
 		nAttr.setSoftMax(0.6);
@@ -740,6 +748,27 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_vdbVolumeFactor);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
+		s_vdbRmin = nAttr.create(s_vdbRminName[0], s_vdbRminName[1], MFnNumericData::kFloat, 0.1, &s);
+		nAttr.setMin(0.01);
+		nAttr.setMax(100);
+		nAttr.setSoftMin(0.1);
+		nAttr.setSoftMax(1);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_vdbRmin);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+
+		s_vdbRmax = nAttr.create(s_vdbRmaxName[0], s_vdbRmaxName[1], MFnNumericData::kFloat, 1.0, &s);
+		nAttr.setMin(0.01);
+		nAttr.setMax(100);
+		nAttr.setSoftMin(0.1);
+		nAttr.setSoftMax(1);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_vdbRmax);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
 		s_immediateUpdate = nAttr.create(s_immediateUpdateName[0], s_immediateUpdateName[1], MFnNumericData::kBoolean, false, &s);
 		nAttr.setHidden(false);
 		nAttr.setAffectsAppearance(true);
@@ -753,6 +782,8 @@ MStatus MpmSimulator::initialize()
 		attributeAffects(s_vdbHalfWidth, s_outputVDB);
 		attributeAffects(s_vdbVolumeFactor, s_outputVDB);
 		attributeAffects(s_immediateUpdate, s_outputVDB);
+		attributeAffects(s_vdbRmin, s_outputVDB);
+		attributeAffects(s_vdbRmax, s_outputVDB);
 	}
 	return s;
 }

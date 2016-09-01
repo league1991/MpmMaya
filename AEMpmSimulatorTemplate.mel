@@ -239,11 +239,13 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 			editorTemplate -callCustom "initParticleControl" "modifyParticleControl" "noAttr";
 		editorTemplate -endLayout;
 				
-		editorTemplate -beginLayout "Output Mesh" -collapse true;
+		editorTemplate -beginLayout "Output VDB" -collapse true;
 			editorTemplate -addControl "immediateUpdate";
 			editorTemplate -addControl "vdbVolumeFactor";
 			editorTemplate -addControl "vdbHalfWidth";
 			editorTemplate -addControl "vdbVoxelSize";
+			editorTemplate -addControl "minParticleRadius";
+			editorTemplate -addControl "maxParticleRadius";
 		editorTemplate -endLayout;
 		
 		editorTemplate -beginLayout (uiRes("m_AElocatorTemplate.kLocatorAttributes")) -collapse true;
