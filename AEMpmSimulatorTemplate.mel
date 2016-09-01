@@ -198,6 +198,7 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 {
 	editorTemplate -beginScrollLayout;
 		
+		editorTemplate -addControl "time";
 		editorTemplate -beginLayout "Physical Parameters" -collapse true;
 			editorTemplate -addControl "youngsModulus";
 			editorTemplate -addControl "possionRatio";
@@ -231,11 +232,18 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 		editorTemplate -suppress "initParticle";
 		editorTemplate -suppress "inputParticle";
 		editorTemplate -suppress "outputParticle";
-		editorTemplate -beginLayout "Output NParticle" -collapse false;
+		editorTemplate -beginLayout "Output NParticle" -collapse true;
 			editorTemplate -addControl "particleName";
 			editorTemplate -addControl "particleSampleRate";
 			editorTemplate -addControl "numSampledParticle";
 			editorTemplate -callCustom "initParticleControl" "modifyParticleControl" "noAttr";
+		editorTemplate -endLayout;
+				
+		editorTemplate -beginLayout "Output Mesh" -collapse true;
+			editorTemplate -addControl "immediateUpdate";
+			editorTemplate -addControl "vdbVolumeFactor";
+			editorTemplate -addControl "vdbHalfWidth";
+			editorTemplate -addControl "vdbVoxelSize";
 		editorTemplate -endLayout;
 		
 		editorTemplate -beginLayout (uiRes("m_AElocatorTemplate.kLocatorAttributes")) -collapse true;

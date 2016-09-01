@@ -33,7 +33,19 @@ MObject MpmSimulator::s_inputParticle;
 MObject MpmSimulator::s_sampleRate;
 MObject MpmSimulator::s_particleStr;
 MObject MpmSimulator::s_numSampledParticle;
+MObject MpmSimulator::s_outputVDB;
+MObject MpmSimulator::s_vdbHalfWidth;
+MObject MpmSimulator::s_vdbVoxelSize;
+MObject MpmSimulator::s_vdbVolumeFactor;
+MObject MpmSimulator::s_time;
+MObject MpmSimulator::s_immediateUpdate;
 
+const char* MpmSimulator::s_immediateUpdateName[2]={"immediateUpdate", "imupdate"};
+const char* MpmSimulator::s_timeName[2]={"time", "time"};
+const char* MpmSimulator::s_vdbVolumeFactorName[2]={"vdbVolumeFactor", "vdbvftr"};
+const char* MpmSimulator::s_vdbHalfWidthName[2]={"vdbHalfWidth","vdbhw"};
+const char* MpmSimulator::s_vdbVoxelSizeName[2]={"vdbVoxelSize", "vdbvsize"};
+const char* MpmSimulator::s_outputVDBName[2]={"outputVDB","outvdb"};
 const char* MpmSimulator::s_numSampledParticleName[2]={"numSampledParticle","nsplptcl"};
 const char* MpmSimulator::s_particleStrName[2]={"particleName","ptclname"};
 const char* MpmSimulator::s_sampleRateName[2]={"particleSampleRate","psplrt"};
@@ -250,6 +262,113 @@ int  MpmSimulator::getNumSampledParticle()
 	return sampledNum;
 }
 
+
+class MyParticleList
+{
+protected:
+	struct MyParticle {
+		openvdb::Vec3R p, v;
+		openvdb::Real  r;
+	};
+	openvdb::Real           mRadiusScale;
+	openvdb::Real           mVelocityScale;
+	std::vector<MyParticle> mParticleList;
+public:
+
+	typedef openvdb::Vec3R  PosType;
+
+	MyParticleList(openvdb::Real rScale=1, openvdb::Real vScale=1)
+		: mRadiusScale(rScale), mVelocityScale(vScale) {}
+	void add(const openvdb::Vec3R &p, const openvdb::Real &r,
+		const openvdb::Vec3R &v=openvdb::Vec3R(0,0,0))
+	{
+		MyParticle pa;
+		pa.p = p;
+		pa.r = r;
+		pa.v = v;
+		mParticleList.push_back(pa);
+	}
+	/// @return coordinate bbox in the space of the specified transfrom
+	openvdb::CoordBBox getBBox(const openvdb::GridBase& grid) {
+		openvdb::CoordBBox bbox;
+		openvdb::Coord &min= bbox.min(), &max = bbox.max();
+		openvdb::Vec3R pos;
+		openvdb::Real rad, invDx = 1/grid.voxelSize()[0];
+		for (size_t n=0, e=this->size(); n<e; ++n) {
+			this->getPosRad(n, pos, rad);
+			const openvdb::Vec3d xyz = grid.worldToIndex(pos);
+			const openvdb::Real   r  = rad * invDx;
+			for (int i=0; i<3; ++i) {
+				min[i] = openvdb::math::Min(min[i], openvdb::math::Floor(xyz[i] - r));
+				max[i] = openvdb::math::Max(max[i], openvdb::math::Ceil( xyz[i] + r));
+			}
+		}
+		return bbox;
+	}
+	//typedef int AttributeType;
+	// The methods below are only required for the unit-tests
+	openvdb::Vec3R pos(int n)   const {return mParticleList[n].p;}
+	openvdb::Vec3R vel(int n)   const {return mVelocityScale*mParticleList[n].v;}
+	openvdb::Real radius(int n) const {return mRadiusScale*mParticleList[n].r;}
+
+	//////////////////////////////////////////////////////////////////////////////
+	/// The methods below are the only ones required by tools::ParticleToLevelSet
+	/// @note We return by value since the radius and velocities are modified
+	/// by the scaling factors! Also these methods are all assumed to
+	/// be thread-safe.
+
+	/// Return the total number of particles in list.
+	///  Always required!
+	size_t size() const { return mParticleList.size(); }
+
+	/// Get the world space position of n'th particle.
+	/// Required by ParticledToLevelSet::rasterizeSphere(*this,radius).
+	void getPos(size_t n,  openvdb::Vec3R&pos) const { pos = mParticleList[n].p; }
+
+
+	void getPosRad(size_t n,  openvdb::Vec3R& pos, openvdb::Real& rad) const {
+		pos = mParticleList[n].p;
+		rad = mRadiusScale*mParticleList[n].r;
+	}
+	void getPosRadVel(size_t n,  openvdb::Vec3R& pos, openvdb::Real& rad, openvdb::Vec3R& vel) const {
+		pos = mParticleList[n].p;
+		rad = mRadiusScale*mParticleList[n].r;
+		vel = mVelocityScale*mParticleList[n].v;
+	}
+	// The method below is only required for attribute transfer
+	void getAtt(size_t n, openvdb::Index32& att) const { att = openvdb::Index32(n); }
+};
+
+MStatus MpmSimulator::computeVDB(openvdb::FloatGrid::Ptr& ls, float voxelSize, float halfWidth, float volumeFactor)
+{
+	MStatus s;	
+	int ithFrame = getCurFrame();
+
+	MpmStatus result;
+	if (!m_core.getRecorder().getStatus(ithFrame, result))
+		return MS::kFailure;
+
+	const vector<Particle>& ptclList = result.getParticle();
+	MyParticleList pa;
+	const float factor = 3.f / (4.f * 3.14159265);
+	for (int i = 0; i < ptclList.size(); ++i)
+	{
+		const Particle& ptcl = ptclList[i];
+		const Vector3f& pos = ptcl.position;
+		float radius = pow(ptcl.volume * factor, 1.f/3.f) * volumeFactor;
+		pa.add(openvdb::Vec3R(pos[0], pos[1], pos[2]), radius);
+	}
+
+	ls = openvdb::createLevelSet<openvdb::FloatGrid>(voxelSize, halfWidth);
+	openvdb::tools::ParticlesToLevelSet<openvdb::FloatGrid> raster(*ls);
+
+	raster.setGrainSize(1);//a value of zero disables threading
+	raster.rasterizeSpheres(pa);
+	raster.finalize();
+
+	return s;
+}
+
 MStatus MpmSimulator::compute( const MPlug& plug, MDataBlock& data )
 {
 	MStatus s;
@@ -309,6 +428,32 @@ MStatus MpmSimulator::compute( const MPlug& plug, MDataBlock& data )
 		MPlug numPtclPlug = Global::getPlug(this, s_numSampledParticleName[0]);
 		numPtclPlug.setInt(getNumSampledParticle());
 	}
+	else if (plug == s_outputVDB)
+	{
+		MPlug imupdatePlug = Global::getPlug(this, s_immediateUpdateName[0]);
+		if (imupdatePlug.asBool())
+		{
+			MPlug voxelSizePlug = Global::getPlug(this, s_vdbVoxelSizeName[0]);
+			MPlug halfWidthPlug = Global::getPlug(this, s_vdbHalfWidthName[0]);
+			MPlug volumeFactorPlug= Global::getPlug(this, s_vdbVolumeFactorName[0]);
+			openvdb::FloatGrid::Ptr ls;
+			s = computeVDB(ls, voxelSizePlug.asFloat(), halfWidthPlug.asFloat(), volumeFactorPlug.asFloat());
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+
+			MPlug outputVDBPlug = Global::getPlug(this, s_outputVDBName[0]);
+			MFnPluginData valFn;
+			MObject valObj = valFn.create(OpenVDBData::id, &s);
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+
+			OpenVDBData* data = (OpenVDBData*)valFn.data(&s);
+			CHECK_MSTATUS_AND_RETURN_IT(s);
+			if (!data)
+				goto COMPUTE_END;
+
+			data->insert(ls);
+			outputVDBPlug.setMObject(valObj);
+		}
+	}
 
 COMPUTE_END:
 	data.setClean(plug);
@@ -332,6 +477,16 @@ MStatus MpmSimulator::initialize()
 
 	// solver param
 	{
+		s_time = uAttr.create(s_timeName[0], s_timeName[1], MFnUnitAttribute::kTime,1, &s);
+		uAttr.setKeyable(true);
+		uAttr.setStorable(false);
+		uAttr.setHidden(false);
+		uAttr.setWritable(true);
+		uAttr.setReadable(false);
+		uAttr.setAffectsAppearance(true);
+		s = addAttribute(s_time);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
 		s_boxMin = nAttr.create(s_boxMinName[0], s_boxMinName[1], MFnNumericData::k3Float, -2, &s);
 		nAttr.setStorable(true);
 		nAttr.setWritable(true);
@@ -533,6 +688,7 @@ MStatus MpmSimulator::initialize()
 		tAttr.setHidden(false);
 		tAttr.setAffectsAppearance(true);
 		s = addAttribute(s_outputParticle);
+		attributeAffects(s_time, s_outputParticle);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 		
 		s_sampleRate = nAttr.create(s_sampleRateName[0], s_sampleRateName[1], MFnNumericData::kInt, 20, &s);
@@ -545,9 +701,58 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_sampleRate);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
+
+		s_outputVDB = tAttr.create(s_outputVDBName[0], s_outputVDBName[1], MFnData::kPlugin, &s);
+		tAttr.setWritable(false);
+		tAttr.setAffectsAppearance(true);
+		s = addAttribute(s_outputVDB);
+		attributeAffects(s_time, s_outputVDB);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+
+		s_vdbVoxelSize = nAttr.create(s_vdbVoxelSizeName[0], s_vdbVoxelSizeName[1], MFnNumericData::kFloat, 0.3, &s);
+		nAttr.setMin(0.02);
+		nAttr.setMax(1000000);
+		nAttr.setSoftMin(0.1);
+		nAttr.setSoftMax(0.6);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_vdbVoxelSize);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_vdbHalfWidth = nAttr.create(s_vdbHalfWidthName[0], s_vdbHalfWidthName[1], MFnNumericData::kFloat, 1.0, &s);
+		nAttr.setMin(0.05);
+		nAttr.setMax(100);
+		nAttr.setSoftMin(0.1);
+		nAttr.setSoftMax(10);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_vdbHalfWidth);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_vdbVolumeFactor = nAttr.create(s_vdbVolumeFactorName[0], s_vdbVolumeFactorName[1], MFnNumericData::kFloat, 5.0, &s);
+		nAttr.setMin(0.05);
+		nAttr.setMax(100);
+		nAttr.setSoftMin(0.1);
+		nAttr.setSoftMax(10);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_vdbVolumeFactor);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_immediateUpdate = nAttr.create(s_immediateUpdateName[0], s_immediateUpdateName[1], MFnNumericData::kBoolean, false, &s);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_immediateUpdate);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
 		attributeAffects(s_inputParticle, s_outputParticle);
 		attributeAffects(s_sampleRate, s_outputParticle);
 		attributeAffects(s_sampleRate, s_numSampledParticle);
+		attributeAffects(s_vdbVoxelSize, s_outputVDB);
+		attributeAffects(s_vdbHalfWidth, s_outputVDB);
+		attributeAffects(s_vdbVolumeFactor, s_outputVDB);
+		attributeAffects(s_immediateUpdate, s_outputVDB);
 	}
 	return s;
 }
@@ -703,6 +908,8 @@ bool MpmSimulator::stepSolver()
 	int frame = getCurFrame();
 	return m_core.for_each_frame(frame, deltaTPlug.asFloat(), nSubstepPlug.asInt());
 }
+
+
 
 
 

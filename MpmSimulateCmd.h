@@ -5,6 +5,7 @@
    -step			-s	进行一步模拟，返回1代表正常，0代表有错误
    -name			-n  指定节点名称
    -numParticle		-nptcl 粒子数目
+   -create			-c  创建模拟节点
 /************************************************************************/
 
 class MpmSimulateCmd: public MPxCommand
@@ -36,5 +37,5 @@ private:
 // 	static const char*				m_gradFlag[2];
 // 	static const char*				m_intPntFlag[2];
 // 	static const char*				m_surfPntFlag[2];
-// 	static const char*				m_createFlag[2];
+ 	static const char*				s_createFlag[2];
 };

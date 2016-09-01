@@ -12,6 +12,7 @@ public:
 	int					getParticleCount();
 	void			    getParticlePos(int idx, Vector3f& pos);
 	void				getParticleVelocity( int idx, Vector3f& vel);
+	const vector<Particle>& getParticle(){return m_particles;}
 private:
 	vector<Particle>	m_particles;
 };

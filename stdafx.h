@@ -23,6 +23,7 @@ typedef Eigen::Vector3i	Vector3i;
 #include <openvdb/Platform.h>
 #include <openvdb/openvdb.h>
 #include <openvdb/Types.h> 
+#include <openvdb/tools/particlestolevelset.h>
 
 #include <maya/MIOStream.h>
 #include <maya/MString.h>

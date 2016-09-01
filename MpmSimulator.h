@@ -34,6 +34,8 @@ private:
 	void				drawCell();
 	int					getCurFrame();
 	bool				initParticle();
+	MStatus				computeVDB(openvdb::FloatGrid::Ptr& ls, float voxelSize, float halfWidth, float volumeFactor);
+
 	MBoundingBox		m_box;
 	MpmCore				m_core;
 
@@ -69,6 +71,12 @@ private:
 	static MObject		s_outputParticle;
 	static MObject		s_sampleRate;
 	static MObject		s_numSampledParticle;
+	static MObject		s_outputVDB;
+	static MObject		s_vdbVoxelSize;
+	static MObject		s_vdbHalfWidth;
+	static MObject		s_vdbVolumeFactor;
+	static MObject		s_time;
+	static MObject		s_immediateUpdate;
 
 	static const char*  s_boxMinName[2];
 	static const char*	s_boxMaxName[2];
@@ -99,5 +107,11 @@ private:
 	static const char*  s_outputParticleName[2];
 	static const char*  s_sampleRateName[2];
 	static const char*  s_numSampledParticleName[2];
+	static const char*  s_outputVDBName[2];
+	static const char*	s_vdbVoxelSizeName[2];
+	static const char*	s_vdbHalfWidthName[2];
+	static const char*	s_vdbVolumeFactorName[2];
+	static const char*	s_timeName[2];
+	static const char*  s_immediateUpdateName[2];
 };
 
