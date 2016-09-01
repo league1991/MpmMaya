@@ -172,7 +172,7 @@ void MpmCore::init_particle_volume_velocity()
 
 void MpmCore::parallel_from_particles_to_grid()
 {
-	//clock_t t0 = clock(), t1;
+//	clock_t t0 = clock(), t1;
 	int totalCell = grid->grid_division[0] * grid->grid_division[1] * grid->grid_division[2];
 	tbb::parallel_for(tbb::blocked_range<int>(0, totalCell, 2500), [&](tbb::blocked_range<int>& r)
 	{
@@ -245,9 +245,10 @@ void MpmCore::parallel_from_particles_to_grid()
 	});
 	
 // 	t1 = clock();
-// 	PRINT_F("--ptcl 2 grid parallel %f s", (t1-t0)/ float(CLOCKS_PER_SEC));
+// 	PRINT_F("--ptcl2grid parallel %f s", (t1-t0)/ float(CLOCKS_PER_SEC));
 // 	t0 = t1;
-
+	
+	
 	const int nx = grid->grid_division[0];
 	const int ny = grid->grid_division[1];
 	const int w  = neighbour*2+1;
@@ -259,19 +260,23 @@ void MpmCore::parallel_from_particles_to_grid()
 		ParticleTemp& ptclRes = ptclTemp[pit];
 		GridNode* pCell = ptclRes.cornerCell;
 
-		for(int z=-neighbour, ithNeigh = 0; z<=neighbour; z++, pCell += nx*(ny-w))
+		for(int z=0, ithNeigh = 0; z<w; z++, pCell += nx*(ny-w))
 		{
-			for(int y=-neighbour; y<=neighbour; y++, pCell += nx-w)
+			const float weightZ = ptclRes.weightZ[z];
+			for(int y=0; y<w; y++, pCell += nx-w)
 			{
-				for(int x=-neighbour; x<=neighbour;x++, ithNeigh++, pCell++)
+				const float weightY = ptclRes.weightY[y];
+				const float weightYZ= weightY * weightZ;
+				for(int x=0; x<w;x++, ithNeigh++, pCell++)
 				{
 					//if(ptclRes.weight[ithNeigh] > 0.f)
-					if (ptclRes.weightX[x+neighbour] > 0.f && 
-						ptclRes.weightY[y+neighbour] > 0.f && 
-						ptclRes.weightZ[z+neighbour] > 0.f)
+					const float weightX = ptclRes.weightX[x];
+					if (weightX > 0.f && 
+						weightY > 0.f && 
+						weightZ > 0.f)
 					{						
 						// float weight_p = ptclRes.weight[ithNeigh]* ptcl->pmass;
-						float weight_p = ptclRes.weightX[x+neighbour] * ptclRes.weightY[y+neighbour] * ptclRes.weightZ[z+neighbour] * ptcl->pmass;
+						float weight_p = weightX * weightYZ * ptcl->pmass;
 						pCell->mass += weight_p;
 						//now velocity is v*m. we need to divide m before use it
 						pCell->velocity_old += weight_p * ptcl->velocity;
