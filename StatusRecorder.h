@@ -5,16 +5,16 @@ class MpmStatus
 {
 public:
 	MpmStatus(){}
-	MpmStatus(const vector<Particle*>& particles);
+	MpmStatus(const deque<Particle>& particles);
 	~MpmStatus();
 	void				draw();
-	bool				copy(const vector<Particle*>& particles);
+	bool				copy(deque<Particle>& particles);
 	int					getParticleCount();
 	void			    getParticlePos(int idx, Vector3f& pos);
 	void				getParticleVelocity( int idx, Vector3f& vel);
-	const vector<Particle>& getParticle(){return m_particles;}
+	const deque<Particle>& getParticle(){return m_particles;}
 private:
-	vector<Particle>	m_particles;
+	deque<Particle>	m_particles;
 };
 
 class StatusRecorder

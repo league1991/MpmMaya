@@ -9,6 +9,11 @@ public:
 		INIT_SPHERE	  = 1,
 		INIT_TWO_SPHERES=2
 	};
+	enum RasterizeType
+	{
+		RASTERIZE_SPHERE = 0,
+		RASTERIZE_TRAIL = 1,
+	};
 
 	MpmSimulator(void);
 	~MpmSimulator(void);
@@ -75,6 +80,9 @@ private:
 	static MObject		s_vdbVoxelSize;
 	static MObject		s_vdbHalfWidth;
 	static MObject		s_vdbVolumeFactor;
+	static MObject		s_vdbVelocityFactor;
+	static MObject		s_vdbVelocitySampleDistance;
+	static MObject		s_vdbType;
 	static MObject		s_vdbRmin;
 	static MObject		s_vdbRmax;
 	static MObject		s_time;
@@ -113,6 +121,9 @@ private:
 	static const char*	s_vdbVoxelSizeName[2];
 	static const char*	s_vdbHalfWidthName[2];
 	static const char*	s_vdbVolumeFactorName[2];
+	static const char*  s_vdbVelocityFactorName[2];
+	static const char*  s_vdbVelocitySampleDistanceName[2];
+	static const char*  s_vdbTypeName[2];
 	static const char*  s_vdbRminName[2];
 	static const char*	s_vdbRmaxName[2];
 	static const char*	s_timeName[2];

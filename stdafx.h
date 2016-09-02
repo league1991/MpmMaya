@@ -1,6 +1,7 @@
 #include "float.h"
 
 #include <vector>
+#include <deque>
 #include <sstream>
 #include <string>
 
@@ -24,6 +25,9 @@ typedef Eigen::Vector3i	Vector3i;
 #include <openvdb/openvdb.h>
 #include <openvdb/Types.h> 
 #include <openvdb/tools/particlestolevelset.h>
+#include <openvdb/tools/Morphology.h>
+#include <openvdb/tools/LevelSetMorph.h>
+#include <openvdb/tools/LevelSetTracker.h>
 
 #include <maya/MIOStream.h>
 #include <maya/MString.h>

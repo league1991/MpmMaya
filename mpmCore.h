@@ -97,7 +97,7 @@ public:
 
 	bool	for_each_frame(int ithFrame, float deltaTime, int nSubstep = 1);
 
-	const vector<Particle*>& getParticle();
+	const deque<Particle>& getParticle();
 	void	getGridConfig(Vector3f& minPnt, Vector3f& cellSize, Vector3i& cellNum);
 
 	template<typename GridType, typename GridPtrType> 
@@ -125,7 +125,7 @@ public:
 						if (val < 0)
 						{
 							vel = velMat * Eigen::Vector4f(pos[0],pos[1],pos[2],1.0);
-							particles.push_back(new Particle(particles.size(), pos, Vector3f(vel[0],vel[1],vel[2]), pmass));
+							particles.push_back(Particle(particles.size(), pos, Vector3f(vel[0],vel[1],vel[2]), pmass));
 						}
 						
 					}
@@ -152,7 +152,7 @@ private:
 	};
 
 	control_parameters	ctrl_params;
-	vector<Particle*>	particles;
+	deque<Particle>	particles;
 	vector<ParticleTemp>m_particleTemp;
 	StatusRecorder      m_recorder;
 

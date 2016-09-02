@@ -37,6 +37,9 @@ MObject MpmSimulator::s_outputVDB;
 MObject MpmSimulator::s_vdbHalfWidth;
 MObject MpmSimulator::s_vdbVoxelSize;
 MObject MpmSimulator::s_vdbVolumeFactor;
+MObject MpmSimulator::s_vdbVelocityFactor;
+MObject MpmSimulator::s_vdbVelocitySampleDistance;
+MObject MpmSimulator::s_vdbType;
 MObject	MpmSimulator::s_vdbRmin;
 MObject	MpmSimulator::s_vdbRmax;
 MObject MpmSimulator::s_time;
@@ -46,6 +49,9 @@ const char* MpmSimulator::s_vdbRminName[2]={"minParticleRadius", "minptclr"};
 const char* MpmSimulator::s_vdbRmaxName[2]={"maxParticleRadius", "maxptclr"};
 const char* MpmSimulator::s_immediateUpdateName[2]={"immediateUpdate", "imupdate"};
 const char* MpmSimulator::s_timeName[2]={"time", "time"};
+const char* MpmSimulator::s_vdbTypeName[2]={"vdbType", "vdbtp"};
+const char* MpmSimulator::s_vdbVelocitySampleDistanceName[2]={"vdbVelocitySampleDist", "vdbvelspldst"};
+const char* MpmSimulator::s_vdbVelocityFactorName[2]={"vdbVelocityFactor", "vdbvelftr"};
 const char* MpmSimulator::s_vdbVolumeFactorName[2]={"vdbVolumeFactor", "vdbvftr"};
 const char* MpmSimulator::s_vdbHalfWidthName[2]={"vdbHalfWidth","vdbhw"};
 const char* MpmSimulator::s_vdbVoxelSizeName[2]={"vdbVoxelSize", "vdbvsize"};
@@ -352,18 +358,29 @@ MStatus MpmSimulator::computeVDB(openvdb::FloatGrid::Ptr& ls, float voxelSize, f
 	if (!m_core.getRecorder().getStatus(ithFrame, result))
 		return MS::kFailure;
 
-	const vector<Particle>& ptclList = result.getParticle();
-	MyParticleList pa;
+	MPlug velocityFtrPlug = Global::getPlug(this, s_vdbVelocityFactorName[0]);
+	MPlug vdbTypePlug = Global::getPlug(this, s_vdbTypeName[0]);
+	short type = vdbTypePlug.asShort();
+
+	const deque<Particle>& ptclList = result.getParticle();
+	MyParticleList pa(volumeFactor, velocityFtrPlug.asFloat());
 	const float factor = 3.f / (4.f * 3.14159265);
 	for (int i = 0; i < ptclList.size(); ++i)
 	{
 		const Particle& ptcl = ptclList[i];
 		const Vector3f& pos = ptcl.position;
-		float radius = pow(ptcl.volume * factor, 1.f/3.f) * volumeFactor;
-		pa.add(openvdb::Vec3R(pos[0], pos[1], pos[2]), radius);
+		const Vector3f& vel = ptcl.velocity;
+		float radius = pow(ptcl.volume * factor, 1.f/3.f);
+		openvdb::Vec3R velocity(0,0,0);
+		if (type == RASTERIZE_TRAIL)
+		{
+			velocity = openvdb::Vec3R(vel[0],vel[1],vel[2]);
+		}
+		pa.add(openvdb::Vec3R(pos[0], pos[1], pos[2]), radius, velocity);
 	}
 
 	ls = openvdb::createLevelSet<openvdb::FloatGrid>(voxelSize, halfWidth);
+	ls->setName("outVDB");
 	openvdb::tools::ParticlesToLevelSet<openvdb::FloatGrid> raster(*ls);
 
 	MPlug rminPlug = Global::getPlug(this, s_vdbRminName[0]);
@@ -371,7 +388,15 @@ MStatus MpmSimulator::computeVDB(openvdb::FloatGrid::Ptr& ls, float voxelSize, f
 	raster.setRmin(min(rminPlug.asFloat(), rmaxPlug.asFloat()));
 	raster.setRmax(max(rminPlug.asFloat(), rmaxPlug.asFloat()));
 	raster.setGrainSize(1);//a value of zero disables threading
-	raster.rasterizeSpheres(pa);
+	if (type == RASTERIZE_SPHERE)
+	{
+		raster.rasterizeSpheres(pa);
+	}
+	else
+	{
+		MPlug sampleDistPlug = Global::getPlug(this, s_vdbVelocitySampleDistanceName[0]);
+		raster.rasterizeTrails(pa, sampleDistPlug.asFloat());
+	}
 	raster.finalize();
 
 	return s;
@@ -748,6 +773,38 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_vdbVolumeFactor);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
+
+		s_vdbVelocityFactor = nAttr.create(s_vdbVelocityFactorName[0], s_vdbVelocityFactorName[1], MFnNumericData::kFloat, 1.0, &s);
+		nAttr.setMin(-100);
+		nAttr.setMax(100);
+		nAttr.setSoftMin(0.0);
+		nAttr.setSoftMax(10);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_vdbVelocityFactor);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+		s_vdbVelocitySampleDistance = nAttr.create(s_vdbVelocitySampleDistanceName[0], s_vdbVelocitySampleDistanceName[1], MFnNumericData::kFloat, 1.0, &s);
+		nAttr.setMin(0.05);
+		nAttr.setMax(100);
+		nAttr.setSoftMin(0.1);
+		nAttr.setSoftMax(10);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_vdbVelocitySampleDistance);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+
+		s_vdbType = eAttr.create(s_vdbTypeName[0], s_vdbTypeName[1]);
+		eAttr.addField("Sphere",  RASTERIZE_SPHERE);
+		eAttr.addField("Trail", RASTERIZE_TRAIL);
+		eAttr.setHidden(false);
+		eAttr.setReadable(true);
+		eAttr.setWritable(true);
+		eAttr.setStorable(true);
+		s= addAttribute(s_vdbType);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
 		s_vdbRmin = nAttr.create(s_vdbRminName[0], s_vdbRminName[1], MFnNumericData::kFloat, 0.1, &s);
 		nAttr.setMin(0.01);
 		nAttr.setMax(100);
@@ -781,6 +838,9 @@ MStatus MpmSimulator::initialize()
 		attributeAffects(s_vdbVoxelSize, s_outputVDB);
 		attributeAffects(s_vdbHalfWidth, s_outputVDB);
 		attributeAffects(s_vdbVolumeFactor, s_outputVDB);
+		attributeAffects(s_vdbVelocitySampleDistance, s_outputVDB);
+		attributeAffects(s_vdbVelocityFactor, s_outputVDB);
+		attributeAffects(s_vdbType, s_outputVDB);
 		attributeAffects(s_immediateUpdate, s_outputVDB);
 		attributeAffects(s_vdbRmin, s_outputVDB);
 		attributeAffects(s_vdbRmax, s_outputVDB);

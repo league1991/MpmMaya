@@ -125,8 +125,9 @@ void MpmCore::init_particle_volume_velocity()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
-		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
+		Particle* ptcl = &particles[pit];
+		Vector3f p_grid_index_f= ptcl->getGridIdx(grid->grid_min,grid->grid_size);
+		Vector3i p_grid_index_i= ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 		for(int z=-2; z<=2;z++)
 		{
 			for(int y=-2; y<=2;y++)
@@ -136,9 +137,9 @@ void MpmCore::init_particle_volume_velocity()
 					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 					if(inGrid(index, grid->grid_division))
 					{
-						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
+						Vector3f xp=(ptcl->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
 						float weight_p=weight(xp);
-						grid->getNode(index[0], index[1], index[2])->mass+=weight_p*particles[pit]->pmass;
+						grid->getNode(index[0], index[1], index[2])->mass+=weight_p*ptcl->pmass;
 					}
 				}
 			}
@@ -147,9 +148,10 @@ void MpmCore::init_particle_volume_velocity()
 
 	for(int pit=0;pit<particles.size();pit++)
 	{
+		Particle* ptcl = &particles[pit];
 		float density=0.f;
-		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
-		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
+		Vector3f p_grid_index_f= ptcl->getGridIdx(grid->grid_min,grid->grid_size);
+		Vector3i p_grid_index_i= ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 		for(int z=-2; z<=2;z++)
 		{
 			for(int y=-2; y<=2;y++)
@@ -159,14 +161,14 @@ void MpmCore::init_particle_volume_velocity()
 					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 					if(inGrid(index, grid->grid_division))
 					{
-						Vector3f xp=(particles[pit]->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
+						Vector3f xp=(ptcl->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
 						float weight_p=weight(xp);
 						density+=grid->getNode(index[0],index[1],index[2])->mass*weight_p/grid->grid_size[0]/grid->grid_size[1]/grid->grid_size[2];
 					}
 				}
 			}
 		}
-		particles[pit]->volume=particles[pit]->pmass/density;
+		ptcl->volume= ptcl->pmass/density;
 	}
 }
 
@@ -201,7 +203,7 @@ void MpmCore::parallel_from_particles_to_grid()
 	{
 		for(int pit = r.begin(); pit != r.end(); pit++)
 		{
-			Particle* ptcl = particles[pit];
+			Particle* ptcl = &particles[pit];
 			ParticleTemp& ptclRes = ptclTemp[pit];
 			if (!ptcl->isValid)
 				continue;
@@ -254,9 +256,9 @@ void MpmCore::parallel_from_particles_to_grid()
 	const int w  = neighbour*2+1;
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		if(!particles[pit]->isValid)
+		Particle* ptcl = &particles[pit];
+		if(!ptcl->isValid)
 			continue;
-		Particle* ptcl = particles[pit];
 		ParticleTemp& ptclRes = ptclTemp[pit];
 		GridNode* pCell = ptclRes.cornerCell;
 
@@ -313,9 +315,9 @@ void MpmCore::from_particles_to_grid()
 
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		if(!particles[pit]->isValid)
+		Particle* ptcl = &particles[pit];
+		if(!ptcl->isValid)
 			continue;
-		Particle* ptcl = particles[pit];
 		Vector3f p_grid_index_f=ptcl->getGridIdx(grid->grid_min,grid->grid_size);
 		Vector3i p_grid_index_i=ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 
@@ -470,7 +472,7 @@ void MpmCore::compute_deformation_gradient_F()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		Particle* ptcl = particles[pit];
+		Particle* ptcl = &particles[pit];
 		Vector3f p_grid_index_f = ptcl->getGridIdx(grid->grid_min,grid->grid_size);
 		Vector3i p_grid_index_i = ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 
@@ -529,7 +531,7 @@ void MpmCore::parallel_compute_deformation_gradient_F()
 	{
 		for(int pit = r.begin(); pit != r.end(); pit++)
 		{
-			Particle* ptcl = particles[pit];
+			Particle* ptcl = &particles[pit];
 			Vector3f p_grid_index_f = ptcl->getGridIdx(grid->grid_min,grid->grid_size);
 			Vector3i p_grid_index_i = ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 
@@ -590,7 +592,7 @@ void MpmCore::parallel_from_grid_to_particle()
 	{
 		for(int pit = r.begin(); pit != r.end(); pit++)
 		{
-			Particle* ptcl = particles[pit];
+			Particle* ptcl = &particles[pit];
 			if(!ptcl->isValid)
 				continue;
 			//Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_center,grid->grid_size);
@@ -627,7 +629,7 @@ void MpmCore::from_grid_to_particle()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		Particle* ptcl = particles[pit];
+		Particle* ptcl = &particles[pit];
 		if(!ptcl->isValid)
 			continue;
 		//Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_center,grid->grid_size);
@@ -663,16 +665,17 @@ void MpmCore::solve_particle_collision()
 {
 	for(int pit=0;pit<particles.size();pit++)
 	{
-		if(!particles[pit]->isValid)
+		Particle* ptcl = &particles[pit];
+		if(!ptcl->isValid)
 			continue;
-		Vector3f p_grid_index_f=particles[pit]->getGridIdx(grid->grid_min,grid->grid_size);
-		Vector3i p_grid_index_i=particles[pit]->getGridIdx_int(grid->grid_min,grid->grid_size);
-		Vector3f p_grid_index_i_new=(particles[pit]->position+particles[pit]->velocity*ctrl_params.deltaT-grid->grid_min).cwiseQuotient(grid->grid_size);
+		Vector3f p_grid_index_f= ptcl->getGridIdx(grid->grid_min,grid->grid_size);
+		Vector3i p_grid_index_i= ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
+		Vector3f p_grid_index_i_new=(ptcl->position+ptcl->velocity*ctrl_params.deltaT-grid->grid_min).cwiseQuotient(grid->grid_size);
 		Vector3i index_check_1=p_grid_index_i-Vector3i(1,1,1);
 		Vector3i index_check_2=p_grid_index_i+Vector3i(1,1,1);
 		if(!inGrid(p_grid_index_i,grid->grid_division)||!inGrid(index_check_1,grid->grid_division)||!inGrid(index_check_2,grid->grid_division))
 		{
-			particles[pit]->isValid=false;
+			ptcl->isValid=false;
 			continue;
 		}
 
@@ -710,9 +713,9 @@ void MpmCore::solve_particle_collision()
 		{
 			Vector3f updated_v;
 			sdf_normal.normalize();
-			if( updateVelocityWithSolvingCollision( velocity_collider, particles[pit]->velocity, sdf_normal, updated_v) )
+			if( updateVelocityWithSolvingCollision( velocity_collider, ptcl->velocity, sdf_normal, updated_v) )
 			{
-				particles[pit]->velocity=updated_v;
+				ptcl->velocity=updated_v;
 			}
 		}
 	}
@@ -721,7 +724,10 @@ void MpmCore::solve_particle_collision()
 void MpmCore::update_position()
 {
 	for(int pit=0;pit<particles.size();pit++)
-		particles[pit]->position+=particles[pit]->velocity*ctrl_params.deltaT;
+	{
+		Particle* ptcl = &particles[pit];
+		ptcl->position+= ptcl->velocity*ctrl_params.deltaT;
+	}
 }
 
 bool MpmCore::for_each_frame(int ithFrame, float deltaTime, int nSubstep)
@@ -889,7 +895,7 @@ void MpmCore::addBall(const Vector3f& center, float radius, int nParticlePerCell
 						jitter /= float(RAND_MAX);
 						jitter = jitter.cwiseProduct(grid->grid_size);
 						Vector3f posJittered = pos + jitter;
-						particles.push_back(new Particle(particles.size(), posJittered, init_velocity, pmass));
+						particles.push_back(Particle(particles.size(), posJittered, init_velocity, pmass));
 					}
 				}
 			}
@@ -926,7 +932,7 @@ void MpmCore::create_snow_ball()
 				// see if pos is inside the sphere
 				if ((pos - snow_ball_center).norm() < sphereRadius) 
 				{
-					particles.push_back(new Particle(pid,pos, init_velocity, pmass));
+					particles.push_back( Particle(pid,pos, init_velocity, pmass));
 					pid++;
 				}
 			}
@@ -966,7 +972,7 @@ void MpmCore::addTwoBalls(int nParticlePerCell)
 				// see if pos is inside the sphere
 				if ((pos - snow_ball_center_1).norm() < sphereRadius) 
 				{
-					particles.push_back(new Particle(pid,pos, init_velocity_1, pmass));
+					particles.push_back(Particle(pid,pos, init_velocity_1, pmass));
 					pid++;
 				}
 			}
@@ -989,7 +995,7 @@ void MpmCore::addTwoBalls(int nParticlePerCell)
 				// see if pos is inside the sphere
 				if ((pos - snow_ball_center_2).norm() < sphereRadius) 
 				{
-					particles.push_back(new Particle(pid,pos, init_velocity_2, pmass));
+					particles.push_back(Particle(pid,pos, init_velocity_2, pmass));
 					pid++;
 				}
 			}
@@ -1033,7 +1039,7 @@ void MpmCore::getGridConfig( Vector3f& minPnt, Vector3f& cellSize, Vector3i& cel
 	}
 }
 
-const vector<Particle*>& MpmCore::getParticle()
+const deque<Particle>& MpmCore::getParticle()
 {
 	return particles;
 }
@@ -1054,13 +1060,6 @@ void MpmCore::clear()
 	{
 		delete grid;
 		grid = NULL;
-	}
-	for (int i = 0; i < particles.size(); ++i)
-	{
-		if (particles[i])
-		{
-			delete particles[i];
-		}
 	}
 	particles.clear();
 	m_particleTemp.clear();

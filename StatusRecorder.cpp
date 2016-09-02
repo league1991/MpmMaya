@@ -43,13 +43,9 @@ int StatusRecorder::getStartFrame()
 	return m_startFrame;
 }
 
-MpmStatus::MpmStatus( const vector<Particle*>& particles )
+MpmStatus::MpmStatus( const deque<Particle>& particles )
 {
-	m_particles.resize(particles.size());
-	for (int i = 0; i < m_particles.size(); ++i)
-	{
-		m_particles[i] = *particles[i];
-	}
+	m_particles = particles;
 }
 
 void MpmStatus::draw()
@@ -67,20 +63,9 @@ void MpmStatus::draw()
 	glEnd();
 }
 
-bool MpmStatus::copy( const vector<Particle*>& particles )
+bool MpmStatus::copy(deque<Particle>& particles )
 {
-	if (m_particles.size() != particles.size())
-	{
-		return false;
-	}
-	for (int i=0; i< m_particles.size(); ++i)
-	{
-		if (!particles[i])
-		{
-			return false;
-		}
-		*particles[i] = m_particles[i];
-	}
+	particles = m_particles;
 	return true;
 }
 
