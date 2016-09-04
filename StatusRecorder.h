@@ -5,29 +5,33 @@ class MpmStatus
 {
 public:
 	MpmStatus(){}
-	MpmStatus(const vector<Particle*>& particles);
+	MpmStatus(const deque<Particle>& particles);
 	~MpmStatus();
 	void				draw();
-	bool				copy(const vector<Particle*>& particles);
-	int					getParticleCount();
-	void			    getParticlePos(int idx, Vector3f& pos);
-	void				getParticleVelocity( int idx, Vector3f& vel);
+	bool				copy(deque<Particle>& particles)const;
+	int					getParticleCount()const;
+	void			    getParticlePos(int idx, Vector3f& pos)const;
+	void				getParticleVelocity( int idx, Vector3f& vel)const;
+	const deque<Particle>& getParticle()const{return m_particles;}
+	void				writeStatus(ofstream& file) const;
+	void				readStatus(ifstream& file, bool append = false);
 private:
-	vector<Particle>	m_particles;
+	deque<Particle>	m_particles;
 };
 
 class StatusRecorder
 {
 public:
-	StatusRecorder():m_startFrame(0){}
+	typedef map<int,MpmStatus> StatusMap;
+	StatusRecorder(){}
 
-	void				init(int startFrame = 0);
+	void				clear(int startFrame = 0);
 
 	bool				addStatus(int ithFrame, const MpmStatus& status);
 	bool				getStatus(int ithFrame, MpmStatus& status);
-
-	int					getStartFrame();
+	const MpmStatus*	getStatusPtr(int ithFrame);
+	bool				readStatus(const char* fileName, int ithFrame, bool append);
+	bool				writeStatus(const char* fileName, int ithFrame);
 private:
-	int					m_startFrame;
-	vector<MpmStatus>	m_statusList;
+	StatusMap			m_statusList;
 };

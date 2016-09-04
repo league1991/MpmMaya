@@ -18,18 +18,25 @@ struct GridNode
 
 	GridNode();
 };
+
 struct GridField
 {
+	GridNode* gridBuffer;
 	boost::multi_array<GridNode*,3> grids;
 	Vector3f grid_size;//interval grid_dims
 	Vector3f grid_min, grid_max;
-	Vector3i grid_division;//int
+	int		 grid_division[3];//int
 	int		 boundary;
 
 	GridField();
 	~GridField();
 
 	void clear();
+	inline GridNode* getNode(int xi, int yi, int zi)
+	{
+		return gridBuffer + zi*grid_division[0]*grid_division[1]+
+			yi * grid_division[0] + xi;
+	}
 
 	GridField(const Vector3f& grid_size, const Vector3f& grid_min, const Vector3i& grid_division, int boundary);
 };
@@ -79,22 +86,22 @@ public:
 	~MpmCore();
 
 	bool	initGrid(	const Vector3f& gridMin,
-					const Vector3f& gridMax,
-					const Vector3f& gridCellSize,
-					int gridBoundary = 2,
-					int ithFrame = 0);
+						const Vector3f& gridMax,
+						const Vector3f& gridCellSize,
+						int gridBoundary = 2,
+						int ithFrame = 0);
 
 	void	setConfigure(float young, float possion, float hardening, float criticalComp, float criticalStretch, float friction, float flipPercent, float deltaT, float particleDensity, const Vector3f& gravity);
 	void	addBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
-	void	addTwoBalls(int nParticlePerCell = 1);
+	void	addTwoBalls(int nParticlePerCell = 1, int ithFrame = 0);
 
-	bool	for_each_frame(int ithFrame, float deltaTime, int nSubstep = 1);
+	bool	step(int ithFrame, float deltaTime, int nSubstep = 1);
 
-	const vector<Particle*>& getParticle();
+	const deque<Particle>& getParticle();
 	void	getGridConfig(Vector3f& minPnt, Vector3f& cellSize, Vector3i& cellNum);
 
 	template<typename GridType, typename GridPtrType> 
-	bool	addParticleGrid(typename GridPtrType& pGrid, const Eigen::Matrix4f& velMat,  int nParticlePerCell = 1)
+	bool	addParticleGrid(typename GridPtrType& pGrid, const Eigen::Matrix4f& velMat,  int nParticlePerCell = 1, int ithFrame=0)
 	{
 		float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
 		float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
@@ -118,26 +125,53 @@ public:
 						if (val < 0)
 						{
 							vel = velMat * Eigen::Vector4f(pos[0],pos[1],pos[2],1.0);
-							particles.push_back(new Particle(particles.size(), pos, Vector3f(vel[0],vel[1],vel[2]), pmass));
+							particles.push_back(Particle(particles.size(), pos, Vector3f(vel[0],vel[1],vel[2]), pmass));
 						}
 						
 					}
 				}
 			}
 		}
-		return false;
+		//void MpmCore::init_particle_volume_velocity();
+		commitInit(ithFrame);
+		return true;
 	}
 
-	bool	commitInit(int ithFrame);
 	StatusRecorder&		getRecorder();
+
 private:
+	static const int neighbour = 2;
+	static const int neighbourWidth = neighbour*2+1;
+	static const int neighbourCube = neighbourWidth*neighbourWidth*neighbourWidth;
+	struct ParticleTemp
+	{
+		Vector3f gradientWeight[neighbourCube];
+		//float	 weight[neighbourCube];
+		float	 weightX[neighbourWidth];
+		float	 weightY[neighbourWidth];
+		float	 weightZ[neighbourWidth];
+		GridNode*cornerCell;
+	};
+
 	control_parameters	ctrl_params;
-	vector<Particle*>	particles;
+	deque<Particle>	particles;
+	vector<ParticleTemp>m_particleTemp;
 	StatusRecorder      m_recorder;
 
 	GridField*			grid;
+	clock_t				m_timer;
 
-	bool inGrid(Vector3i& index, Vector3i& grid_division);
+	bool	commitInit(int ithFrame);
+
+	void initTimer();
+	clock_t getDeltaTime();
+
+	inline bool inGrid(Vector3i& index, int grid_division[] )
+	{
+		return	index[0]>=0 && index[0]<grid_division[0] &&
+				index[1]>=0 && index[1]<grid_division[1] &&
+				index[2]>=0 && index[2]<grid_division[2];
+	}
 
 	void clear();
 
@@ -156,6 +190,7 @@ private:
 
 	//step 1 transfer mass and velocity to grid. And compute force of grid according to (6)
 	void from_particles_to_grid();
+	void parallel_from_particles_to_grid();
 
 	//step 3 4 compute grid force and update grid velocity
 	void compute_grid_velocity();
@@ -173,9 +208,11 @@ private:
 
 	//step 7 update deformation gradient
 	void compute_deformation_gradient_F();
+	void parallel_compute_deformation_gradient_F();
 
 	//step 8 transfer velocity to particle
 	void from_grid_to_particle();
+	void parallel_from_grid_to_particle();
 
 	//step 9 handle particle collision
 	void solve_particle_collision();
