@@ -86,22 +86,22 @@ public:
 	~MpmCore();
 
 	bool	initGrid(	const Vector3f& gridMin,
-					const Vector3f& gridMax,
-					const Vector3f& gridCellSize,
-					int gridBoundary = 2,
-					int ithFrame = 0);
+						const Vector3f& gridMax,
+						const Vector3f& gridCellSize,
+						int gridBoundary = 2,
+						int ithFrame = 0);
 
 	void	setConfigure(float young, float possion, float hardening, float criticalComp, float criticalStretch, float friction, float flipPercent, float deltaT, float particleDensity, const Vector3f& gravity);
 	void	addBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
-	void	addTwoBalls(int nParticlePerCell = 1);
+	void	addTwoBalls(int nParticlePerCell = 1, int ithFrame = 0);
 
-	bool	for_each_frame(int ithFrame, float deltaTime, int nSubstep = 1);
+	bool	step(int ithFrame, float deltaTime, int nSubstep = 1);
 
 	const deque<Particle>& getParticle();
 	void	getGridConfig(Vector3f& minPnt, Vector3f& cellSize, Vector3i& cellNum);
 
 	template<typename GridType, typename GridPtrType> 
-	bool	addParticleGrid(typename GridPtrType& pGrid, const Eigen::Matrix4f& velMat,  int nParticlePerCell = 1)
+	bool	addParticleGrid(typename GridPtrType& pGrid, const Eigen::Matrix4f& velMat,  int nParticlePerCell = 1, int ithFrame=0)
 	{
 		float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
 		float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
@@ -132,11 +132,13 @@ public:
 				}
 			}
 		}
-		return false;
+		//void MpmCore::init_particle_volume_velocity();
+		commitInit(ithFrame);
+		return true;
 	}
 
-	bool	commitInit(int ithFrame);
 	StatusRecorder&		getRecorder();
+
 private:
 	static const int neighbour = 2;
 	static const int neighbourWidth = neighbour*2+1;
@@ -157,6 +159,12 @@ private:
 	StatusRecorder      m_recorder;
 
 	GridField*			grid;
+	clock_t				m_timer;
+
+	bool	commitInit(int ithFrame);
+
+	void initTimer();
+	clock_t getDeltaTime();
 
 	inline bool inGrid(Vector3i& index, int grid_division[] )
 	{

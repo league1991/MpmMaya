@@ -7,7 +7,8 @@ public:
 	{
 		INIT_FROM_VDB = 0,
 		INIT_SPHERE	  = 1,
-		INIT_TWO_SPHERES=2
+		INIT_TWO_SPHERES=2,
+		INIT_EMPTY = 3,
 	};
 	enum RasterizeType
 	{
@@ -34,11 +35,14 @@ public:
 	bool				stepSolver();
 	int					getNumSampledParticle();
 
+	bool				saveCurStatus(const char* customName = NULL);
+	bool				loadCurStatus(const char* fileName, bool isAppend);
+
 private:
 	void				drawIcon();
 	void				drawCell();
 	int					getCurFrame();
-	bool				initParticle();
+	bool				initParticle(int ithFrame);
 	MStatus				computeVDB(openvdb::FloatGrid::Ptr& ls, float voxelSize, float halfWidth, float volumeFactor);
 
 	MBoundingBox		m_box;
@@ -88,6 +92,11 @@ private:
 	static MObject		s_time;
 	static MObject		s_immediateUpdate;
 
+	// loading and saving
+	static MObject		s_saveEveryFrame;
+	static MObject		s_saveFilePath;
+	static MObject		s_saveFilePrefix;
+
 	static const char*  s_boxMinName[2];
 	static const char*	s_boxMaxName[2];
 	static const char*  s_cellSizeName[2];
@@ -128,5 +137,8 @@ private:
 	static const char*	s_vdbRmaxName[2];
 	static const char*	s_timeName[2];
 	static const char*  s_immediateUpdateName[2];
+	static const char*  s_saveEveryFrameName[2];
+	static const char*  s_saveFilePathName[2];
+	static const char*  s_saveFilePrefixName[2];
 };
 

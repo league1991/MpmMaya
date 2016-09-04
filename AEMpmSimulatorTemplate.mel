@@ -75,6 +75,7 @@ global proc execSimulator(string $nodeName, int $type)
         -maxValue $length
         $gMainProgressBar;
 		
+	int  $saveEveryFrame = `getAttr ($nodeName+".saveEveryFrame")`;
 	int  $begTime = `currentTime -q`;
 	int  $t;
 	$startSecond = `timerX`;
@@ -100,6 +101,10 @@ global proc execSimulator(string $nodeName, int $type)
 		if($res == 0)
 			break;
 				
+		if($saveEveryFrame != 0)
+		{
+			$res = `mpmSimulate -save "" -name $nodeName`;
+		}
 		currentTime ($t+1);
 	}
 	// code that is being timed
@@ -136,7 +141,7 @@ global proc initSimulatorControl(string $attrName)
 						simLengthSlider;
 		
 		button -label "Simulate" -c ("execSimulator " + $nodeName + " 0") simButton;
-		button -label "Save Simulation Result" -c ("saveSimulationData " + $nodeName) saveButton;
+		//button -label "Save Simulation Result" -c ("saveSimulationData " + $nodeName) saveButton;
 	setUITemplate -ppt;
 }
 
@@ -145,7 +150,7 @@ global proc modifySimulatorControl(string $attrName)
 	string $nodeName = `plugNode $attrName`;
 	button -e -c ("initSimulator " + $nodeName) initButton;	
 	button -e -c ("execSimulator " + $nodeName + " 0") simButton;
-	button -e -c ("saveSimulationData " + $nodeName) saveButton;
+	//button -e -c ("saveSimulationData " + $nodeName) saveButton;
 }
 
 // particle buttons
@@ -187,10 +192,59 @@ global proc initParticleControl(string $attrName)
 		button -label "Build or Update Particle Data" -c ("buildOrUpdateParticleData " + $nodeName) particleButton;
 	setUITemplate -ppt;
 }
+
 global proc modifyParticleControl(string $attrName)
 {
 	string $nodeName = `plugNode $attrName`;
 	button -e -c ("buildOrUpdateParticleData " + $nodeName) particleButton;
+}
+
+global proc loadCurFrame(string $nodeName)
+{
+	int $append = `checkBox -query -value appendLoadCheckBox`;	
+	string $filter = "*.dat";
+	string $result[] = `fileDialog2 -fileFilter $filter -fileMode 4`;
+	int $i;
+	int $frame = `currentTime -q`;
+	print($result);
+	for($i = 0; $i < size($result); ++$i, ++$frame)
+	{
+		if ($append)
+		{
+			$res = `mpmSimulate -load $result[$i] -append -name $nodeName`;
+		}
+		else
+		{
+			$res = `mpmSimulate -load $result[$i] -name $nodeName`;
+		}
+		currentTime ($frame+1);
+	}
+}
+
+global proc saveCurFrame(string $nodeName)
+{
+	string $filter = "*.dat";
+	string $result[] = `fileDialog2 -fileFilter $filter -fileMode 0`;
+	if(size($result) > 0)
+	{
+		$res = `mpmSimulate -save $result[0] -name $nodeName`;
+	}
+}
+
+global proc initSaveControl(string $attrName)
+{
+	string $nodeName = `plugNode $attrName`;
+	setUITemplate -pst "attributeEditorTemplate";
+		checkBox -label "Append To Current Status" appendLoadCheckBox;
+		button -label "Load Frames" -c ("loadCurFrame " + $nodeName) loadButton;
+		button -label "Save Current Frame" -c ("saveCurFrame " + $nodeName) saveButton;
+	setUITemplate -ppt;
+}
+global proc modifySaveControl(string $attrName)
+{
+	string $nodeName = `plugNode $attrName`;
+	button -e -c ("loadCurFrame " + $nodeName) loadButton;
+	button -e -c ("saveCurFrame " + $nodeName) saveButton;
 }
 
 // main
@@ -226,7 +280,15 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 				editorTemplate -addControl "initStartTransform";
 				editorTemplate -addControl "initEndTransform";
 				editorTemplate -addControl "initDeltaTime";
-			editorTemplate -endLayout;
+			editorTemplate -endLayout;		
+		editorTemplate -endLayout;
+		
+		editorTemplate -beginLayout "Load and Save" -collapse true;
+			editorTemplate -addControl "loadFilePath";
+			editorTemplate -callCustom "initSaveControl" "modifySaveControl" "noAttr";
+			editorTemplate -addControl "saveEveryFrame";
+			editorTemplate -addControl "saveFolder";
+			editorTemplate -addControl "saveFilePrefix";
 		editorTemplate -endLayout;
 		
 		editorTemplate -suppress "initParticle";
@@ -241,7 +303,10 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 				
 		editorTemplate -beginLayout "Output VDB" -collapse true;
 			editorTemplate -addControl "immediateUpdate";
+			editorTemplate -addControl "vdbType";
 			editorTemplate -addControl "vdbVolumeFactor";
+			editorTemplate -addControl "vdbVelocityFactor";
+			editorTemplate -addControl "vdbVelocitySampleDist";
 			editorTemplate -addControl "vdbHalfWidth";
 			editorTemplate -addControl "vdbVoxelSize";
 			editorTemplate -addControl "minParticleRadius";

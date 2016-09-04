@@ -13,3 +13,4 @@ Particle::Particle( int pid, Vector3f& position, Vector3f& velocity, float pmass
 	Fp=Matrix3f::Identity();
 	isValid=true;
 }
+

@@ -23,10 +23,7 @@ struct Particle
 		return (position-grid_min).cwiseQuotient(grid_size).cast<int>();
 	}
 
-	Particle()
-	{
-		isValid=true;
-	}
 
 	Particle(int pid, Vector3f& position, Vector3f& velocity, float pmass);
+	Particle(){}
 };

@@ -27,7 +27,9 @@ private:
 	static const char*				s_numParticleFlag[2];
 // 	static const char*				m_stepStaticFlag[2];
 // 	static const char*				m_recordEleGFFlag[2];
-// 	static const char*				m_saveFlag[2];
+ 	static const char*				s_saveFlag[2];
+	static const char*				s_loadFlag[2];
+	static const char*				s_appendLoadFlag[2];
 // 	static const char*				m_saveEleGFFlag[2];
 // 	static const char*				m_loadEleMatFlag[2];
 // 	static const char*				m_resetEleMatFlag[2];

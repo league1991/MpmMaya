@@ -123,6 +123,17 @@ Matrix3f MpmCore::cauchy_stress( Matrix3f& Fe, Matrix3f& Fp, float particle_volu
 
 void MpmCore::init_particle_volume_velocity()
 {
+	int totalCell = grid->grid_division[0] * grid->grid_division[1] * grid->grid_division[2];
+	GridNode zeroNode;
+	tbb::parallel_for(tbb::blocked_range<int>(0, totalCell, 2500), [&](tbb::blocked_range<int>& r)
+	{
+		GridNode* pCell = grid->getNode(0,0,0) + r.begin();
+		for(int idx = r.begin(); idx != r.end(); idx++, pCell++)
+		{
+			pCell->mass=0;
+		}
+	});
+
 	for(int pit=0;pit<particles.size();pit++)
 	{
 		Particle* ptcl = &particles[pit];
@@ -137,15 +148,17 @@ void MpmCore::init_particle_volume_velocity()
 					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 					if(inGrid(index, grid->grid_division))
 					{
-						Vector3f xp=(ptcl->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
+						Vector3f xp=(ptcl->position - grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
 						float weight_p=weight(xp);
-						grid->getNode(index[0], index[1], index[2])->mass+=weight_p*ptcl->pmass;
+						grid->getNode(index[0], index[1], index[2])->mass += 
+							weight_p * ptcl->pmass;
 					}
 				}
 			}
 		}
 	}
 
+	const float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
 	for(int pit=0;pit<particles.size();pit++)
 	{
 		Particle* ptcl = &particles[pit];
@@ -161,9 +174,12 @@ void MpmCore::init_particle_volume_velocity()
 					Vector3i index=p_grid_index_i+Vector3i(x,y,z);
 					if(inGrid(index, grid->grid_division))
 					{
-						Vector3f xp=(ptcl->position-grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
-						float weight_p=weight(xp);
-						density+=grid->getNode(index[0],index[1],index[2])->mass*weight_p/grid->grid_size[0]/grid->grid_size[1]/grid->grid_size[2];
+						Vector3f xp=(ptcl->position 
+							- grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2])) 
+							- grid->grid_min).cwiseQuotient(grid->grid_size);
+						float weight_p= weight(xp);
+						density+=grid->getNode(index[0],index[1],index[2])->mass * 
+							weight_p / cellVolume;
 					}
 				}
 			}
@@ -176,6 +192,7 @@ void MpmCore::parallel_from_particles_to_grid()
 {
 //	clock_t t0 = clock(), t1;
 	int totalCell = grid->grid_division[0] * grid->grid_division[1] * grid->grid_division[2];
+	GridNode zeroNode;
 	tbb::parallel_for(tbb::blocked_range<int>(0, totalCell, 2500), [&](tbb::blocked_range<int>& r)
 	{
 		GridNode* pCell = grid->getNode(0,0,0) + r.begin();
@@ -222,11 +239,11 @@ void MpmCore::parallel_from_particles_to_grid()
 					for(int x=-neighbour; x<=neighbour;x++, ithNeigh++)
 					{
 						Vector3i index=p_grid_index_i+Vector3i(x,y,z);
-						if     (index[0] < 0 && index[0] >= grid->grid_division[0])
+						if     (index[0] < 0 || index[0] >= grid->grid_division[0])
 							ptclRes.weightX[x+neighbour] = -1.f;
-						else if(index[1] < 0 && index[1] >= grid->grid_division[1])
+						else if(index[1] < 0 || index[1] >= grid->grid_division[1])
 							ptclRes.weightY[y+neighbour] = -1.f;
-						else if(index[2] < 0 && index[2] >= grid->grid_division[2])
+						else if(index[2] < 0 || index[2] >= grid->grid_division[2])
 							ptclRes.weightZ[z+neighbour] = -1.f;
 						else
 						{
@@ -730,73 +747,55 @@ void MpmCore::update_position()
 	}
 }
 
-bool MpmCore::for_each_frame(int ithFrame, float deltaTime, int nSubstep)
+bool MpmCore::step(int ithFrame, float deltaTime, int nSubstep)
 {
 	// 更新粒子位置
-	int start = m_recorder.getStartFrame();
-	MpmStatus status;
-	bool res = m_recorder.getStatus(ithFrame, status);
-	if (res)
+	const MpmStatus* status = m_recorder.getStatusPtr(ithFrame);
+	bool res = false;
+	if (status)
 	{
-		res = status.copy(particles);
+		res = status->copy(particles);
 	}
 	if (!res)
 	{
 		return false;
 	}
 
-	clock_t t0 = clock();
-	clock_t t1 = t0;
+	initTimer();
 	int msArray[8] = {0,0,0,0, 0,0,0,0};
 	ctrl_params.deltaT = deltaTime / nSubstep;
 	for (int ithStep = 0; ithStep < nSubstep; ++ithStep)
 	{
-		if(ctrl_params.frame!=0)
+		//if(ctrl_params.frame!=0)
 		{
 			//from_particles_to_grid();
 			parallel_from_particles_to_grid();
-			t1 = clock();
-			msArray[0] += t1 - t0;
-			t0 = t1;
+			msArray[0] += getDeltaTime();
 		}
 
 		if(ctrl_params.frame==0)
 		{
-			init_particle_volume_velocity();
-			t1 = clock();
-			msArray[1] += t1 - t0;
-			t0 = t1;
+// 			init_particle_volume_velocity();
+// 			msArray[1] += getDeltaTime();
 		}
 
 		compute_grid_velocity();
-		t1 = clock();
-		msArray[2] += t1 - t0;
-		t0 = t1;
+		msArray[2] += getDeltaTime();
 
 		solve_grid_collision();
-		t1 = clock();
-		msArray[3] += t1 - t0;
-		t0 = t1;
+		msArray[3] += getDeltaTime();
 
 		parallel_compute_deformation_gradient_F();
-		t1 = clock();
-		msArray[4] += t1 - t0;
-		t0 = t1;
+		msArray[4] += getDeltaTime();
 
 		parallel_from_grid_to_particle();
-		t1 = clock();
-		msArray[5] += t1 - t0;
-		t0 = t1;
+		msArray[5] += getDeltaTime();
 
 		solve_particle_collision();
-		t1 = clock();
-		msArray[6] += t1 - t0;
-		t0 = t1;
+		msArray[6] += getDeltaTime();
 
 		update_position();
-		t1 = clock();
-		msArray[7] += t1 - t0;
-		t0 = t1;
+		msArray[7] += getDeltaTime();
 	}
 
 	PRINT_F("from_particles_to_grid:		%f", float(msArray[0])/CLOCKS_PER_SEC);
@@ -901,7 +900,7 @@ void MpmCore::addBall(const Vector3f& center, float radius, int nParticlePerCell
 			}
 		}
 	}
-	
+	commitInit(ithFrame);
 }
 
 void MpmCore::create_snow_ball()
@@ -940,7 +939,7 @@ void MpmCore::create_snow_ball()
 	}
 }
 
-void MpmCore::addTwoBalls(int nParticlePerCell)
+void MpmCore::addTwoBalls(int nParticlePerCell, int ithFrame)
 {
 	float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];
 	float pmass= ctrl_params.particleDensity * cellVolume / nParticlePerCell;
@@ -1001,6 +1000,7 @@ void MpmCore::addTwoBalls(int nParticlePerCell)
 			}
 		}
 	}
+	commitInit(ithFrame);
 }
 
 bool MpmCore::initGrid(const Vector3f& gridMin,
@@ -1124,9 +1124,23 @@ void MpmCore::setConfigure(float young,
 
 bool MpmCore::commitInit( int ithFrame )
 {
-	m_recorder.init(ithFrame);
+	init_particle_volume_velocity();
+
 	m_recorder.addStatus(ithFrame, MpmStatus(particles));
 	return false;
+}
+
+clock_t MpmCore::getDeltaTime()
+{
+	clock_t t = clock();
+	clock_t res = t - m_timer;
+	m_timer = t;
+	return res;
+}
+
+void MpmCore::initTimer()
+{
+	m_timer = clock();
 }
 
 void control_parameters::setting_1()

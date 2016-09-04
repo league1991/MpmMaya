@@ -44,7 +44,13 @@ MObject	MpmSimulator::s_vdbRmin;
 MObject	MpmSimulator::s_vdbRmax;
 MObject MpmSimulator::s_time;
 MObject MpmSimulator::s_immediateUpdate;
+MObject MpmSimulator::s_saveFilePrefix;
+MObject MpmSimulator::s_saveFilePath;
+MObject MpmSimulator::s_saveEveryFrame;
 
+const char* MpmSimulator::s_saveEveryFrameName[2]={"saveEveryFrame","saveef"};
+const char* MpmSimulator::s_saveFilePathName[2]={"saveFolder","savefdr"};
+const char* MpmSimulator::s_saveFilePrefixName[2]={"saveFilePrefix","savefpfx"};
 const char* MpmSimulator::s_vdbRminName[2]={"minParticleRadius", "minptclr"};
 const char* MpmSimulator::s_vdbRmaxName[2]={"maxParticleRadius", "maxptclr"};
 const char* MpmSimulator::s_immediateUpdateName[2]={"immediateUpdate", "imupdate"};
@@ -657,6 +663,8 @@ MStatus MpmSimulator::initialize()
 		eAttr.addField("Init from OpenVDB",  INIT_FROM_VDB);
 		eAttr.addField("Init a Sphere", INIT_SPHERE);
 		eAttr.addField("Init two Spheres", INIT_TWO_SPHERES);
+		eAttr.addField("Init Empty", INIT_EMPTY);
+		eAttr.setDefault(INIT_EMPTY);
 		eAttr.setHidden(false);
 		eAttr.setReadable(true);
 		eAttr.setWritable(true);
@@ -845,6 +853,29 @@ MStatus MpmSimulator::initialize()
 		attributeAffects(s_vdbRmin, s_outputVDB);
 		attributeAffects(s_vdbRmax, s_outputVDB);
 	}
+	// loading and saving
+	{
+		s_saveEveryFrame = nAttr.create(s_saveEveryFrameName[0], s_saveEveryFrameName[1], MFnNumericData::kBoolean, false, &s);
+		nAttr.setHidden(false);
+		s = addAttribute(s_saveEveryFrame);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_saveFilePath = tAttr.create(s_saveFilePathName[0], s_saveFilePathName[1], MFnData::kString);
+		tAttr.setKeyable(true);
+		tAttr.setStorable(true);
+		tAttr.setHidden(false);
+		tAttr.setWritable(true);
+		s = addAttribute(s_saveFilePath);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_saveFilePrefix = tAttr.create(s_saveFilePrefixName[0], s_saveFilePrefixName[1], MFnData::kString);
+		tAttr.setKeyable(true);
+		tAttr.setStorable(true);
+		tAttr.setHidden(false);
+		tAttr.setWritable(true);
+		s = addAttribute(s_saveFilePrefix);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+	}
 	return s;
 }
 
@@ -899,13 +930,17 @@ bool MpmSimulator::initSolver()
 						particleDensityPlug.asFloat(),
 						gravity);
 
+	m_core.getRecorder().clear();
 	if (initTypePlug.asShort() == INIT_SPHERE)
 		m_core.addBall(Vector3f(0,0,0), 1, nParticle, frame);
 	else if (initTypePlug.asShort() == INIT_TWO_SPHERES)
-		m_core.addTwoBalls(nParticle);
+		m_core.addTwoBalls(nParticle, frame);
 	else if (initTypePlug.asShort() == INIT_FROM_VDB)
-		res &= initParticle();
-	m_core.commitInit(frame);
+		res &= initParticle(frame);
+	else if (initTypePlug.asShort() == INIT_EMPTY)
+	{
+		res &= true;
+	}
 	if (res)
 	{
 		MGlobal::displayInfo("init succeed!");
@@ -917,7 +952,7 @@ bool MpmSimulator::initSolver()
 	return res;
 }
 
-bool MpmSimulator::initParticle()
+bool MpmSimulator::initParticle(int ithFrame)
 {
 	MPlug initParticlePlug = Global::getPlug(this, s_initParticleName[0]);
 	MPlug nParticlePlug = Global::getPlug(this, s_nParticlePerCellName[0]);
@@ -983,9 +1018,9 @@ bool MpmSimulator::initParticle()
 			if (!pGridBase)
 				continue;
 			else if (pGridBase->isType<openvdb::FloatGrid>())
-				m_core.addParticleGrid<openvdb::FloatGrid>(pGridBase, velMatE, nPPC);
+				m_core.addParticleGrid<openvdb::FloatGrid>(pGridBase, velMatE, nPPC, ithFrame);
 			else if (pGridBase->isType<openvdb::DoubleGrid>())
-				m_core.addParticleGrid<openvdb::DoubleGrid>(pGridBase, velMatE, nPPC);
+				m_core.addParticleGrid<openvdb::DoubleGrid>(pGridBase, velMatE, nPPC, ithFrame);
 		}
 	}
 	return true;
@@ -997,8 +1032,40 @@ bool MpmSimulator::stepSolver()
 	MPlug deltaTPlug = Global::getPlug(this, s_deltaTName[0]);
 	MPlug nSubstepPlug = Global::getPlug(this, s_nSubStepName[0]);
 	int frame = getCurFrame();
-	return m_core.for_each_frame(frame, deltaTPlug.asFloat(), nSubstepPlug.asInt());
+	return m_core.step(frame, deltaTPlug.asFloat(), nSubstepPlug.asInt());
 }
+
+bool MpmSimulator::loadCurStatus(const char* fileName, bool isAppend)
+{
+	PRINT_F("load status from file: %s", fileName);
+	int curFrame = getCurFrame();
+	bool res = m_core.getRecorder().readStatus(fileName, curFrame,	isAppend);
+	return res;
+}
+
+bool MpmSimulator::saveCurStatus(const char* customName)
+{
+	int curFrame = getCurFrame();
+	char curFrameStr[30];
+	sprintf(curFrameStr, "%05d.dat", curFrame);
+
+	MPlug pathPlug = Global::getPlug(this, s_saveFilePathName[0]);
+	MPlug prefixPlug= Global::getPlug(this, s_saveFilePrefixName[0]);
+	MString path = pathPlug.asString();
+	MString prefix= prefixPlug.asString();
+	MString fullPath;
+	if (path.length())
+	{
+		fullPath += path + "\\";
+	}
+	fullPath += prefix + curFrameStr;
+
+	PRINT_F("save particles to %s", fullPath.asChar());
+	const char* fileName = customName ? customName : fullPath.asChar();
+	bool res = m_core.getRecorder().writeStatus(fileName, curFrame);
+	return res;
+}
+
 
 
 
