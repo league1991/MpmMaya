@@ -139,7 +139,11 @@ MStatus OpenVDBCopyNode::compute(const MPlug& plug, MDataBlock& data)
 
         const OpenVDBData* inputVdbA = mvdb::getInputVDB(aVdbInputA, data);
         const OpenVDBData* inputVdbB = mvdb::getInputVDB(aVdbInputB, data);
-
+		if (!inputVdbA || !inputVdbB)
+		{
+			return MS::kFailure;
+		}
+		
 
         MStatus status;
         MFnPluginData pluginData;

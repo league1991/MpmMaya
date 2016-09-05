@@ -200,6 +200,10 @@ MStatus OpenVDBFilterNode::compute(const MPlug& plug, MDataBlock& data)
     if (plug == aVdbOutput) {
 
         const OpenVDBData* inputVdb = mvdb::getInputVDB(aVdbInput, data);
+		if (!inputVdb)
+		{
+			return MS::kFailure;
+		}
 
         MStatus status;
         MFnPluginData pluginData;
