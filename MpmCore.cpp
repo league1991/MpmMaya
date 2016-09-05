@@ -766,7 +766,7 @@ bool MpmCore::step(int ithFrame, float deltaTime, int nSubstep)
 	ctrl_params.deltaT = deltaTime / nSubstep;
 	for (int ithStep = 0; ithStep < nSubstep; ++ithStep)
 	{
-		//if(ctrl_params.frame!=0)
+		if(ctrl_params.frame!=0)
 		{
 			//from_particles_to_grid();
 			parallel_from_particles_to_grid();
