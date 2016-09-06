@@ -51,10 +51,12 @@ MObject	MpmSimulator::s_colliderVdb;
 MObject	MpmSimulator::s_colliderTrans;
 MObject	MpmSimulator::s_displayType;
 MObject	MpmSimulator::s_displaySdf;
+MObject	MpmSimulator::s_displaySdfVel;
 MObject	MpmSimulator::s_displayGrid;
 
 const char* MpmSimulator::s_displayTypeName[2]={"displayType","disptype"};
 const char* MpmSimulator::s_displaySdfName[2]={"displaySdf", "dispsdf"};
+const char* MpmSimulator::s_displaySdfVelName[2]={"displaySdfVelocity", "dispsdfvel"};
 const char* MpmSimulator::s_displayGridName[2]={"displayCell","dispcell"};
 const char* MpmSimulator::s_colliderTransName[2]={"colliderTrans", "cldrtrans"};
 const char* MpmSimulator::s_colliderVdbName[2]={"colliderVdb","cldrvdb"};
@@ -144,12 +146,13 @@ void MpmSimulator::draw( M3dView & view, const MDagPath & path, M3dView::Display
 		drawCell();
 
 		MPlug sdfPlug = Global::getPlug(this, s_displaySdfName[0]);
+		MPlug sdfVelPlug = Global::getPlug(this, s_displaySdfVelName[0]);
 		if (sdfPlug.asBool())
-			drawSdf(ithFrame, true, true, true, true);
+			drawSdf(ithFrame, true, true, sdfVelPlug.asBool(), true);
 
 		m_box = MBoundingBox(MPoint(-1.1,-0.5,-1.1), MPoint(4.1,0.5,1.1));
 
-		const MpmStatus* status = m_core.getRecorder().getStatusPtr(ithFrame-1);
+		const MpmStatus* status = m_core.getRecorder().getStatusPtr(ithFrame);
 		if(status)
 		{
 			status->draw();
@@ -999,6 +1002,11 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_displaySdf);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 
+		s_displaySdfVel = nAttr.create(s_displaySdfVelName[0], s_displaySdfVelName[1], MFnNumericData::kBoolean, false, &s);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_displaySdfVel);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
 
 		s_displayGrid= nAttr.create(s_displayGridName[0], s_displayGridName[1], MFnNumericData::kBoolean, true, &s);
 		nAttr.setHidden(false);

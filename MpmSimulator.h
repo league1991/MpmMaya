@@ -110,6 +110,7 @@ private:
 	// display
 	static MObject		s_displayType;
 	static MObject		s_displaySdf;
+	static MObject		s_displaySdfVel;
 	static MObject		s_displayGrid;
 
 	static const char*  s_boxMinName[2];
@@ -159,6 +160,7 @@ private:
 	static const char*  s_colliderTransName[2];
 	static const char*  s_displayTypeName[2];
 	static const char*  s_displaySdfName[2];
+	static const char*  s_displaySdfVelName[2];
 	static const char*  s_displayGridName[2];
 };
 
