@@ -183,36 +183,24 @@ public:
 		if (pS)
 		{
 			const vector<Matrix4f>& matList = pS->getMatrix();
-			PRINT_F("get status %d th slot, %d size", ithSlot, matList.size());
 			if (ithSlot < matList.size())
 			{
 				const Matrix4f& trans0 = matList[ithSlot];
 				const Matrix4f& trans1 = worldMat;
 
-				velMat = trans0;
-				PRINT_F("trans0:\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf",
-					velMat(0,0), velMat(0,1), velMat(0,2), velMat(0,3), 
-					velMat(1,0), velMat(1,1), velMat(1,2), velMat(1,3), 
-					velMat(2,0), velMat(2,1), velMat(2,2), velMat(2,3),
-					velMat(3,0), velMat(3,1), velMat(3,2), velMat(3,3));
-				velMat = trans1;
-				PRINT_F("trans1:\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf",
-					velMat(0,0), velMat(0,1), velMat(0,2), velMat(0,3), 
-					velMat(1,0), velMat(1,1), velMat(1,2), velMat(1,3), 
-					velMat(2,0), velMat(2,1), velMat(2,2), velMat(2,3),
-					velMat(3,0), velMat(3,1), velMat(3,2), velMat(3,3));
 				if (abs(trans0.determinant()) > 0.01)
 				{
-					velMat = (trans1 - trans0) * trans0.inverse() * (1.0/ ctrl_params.deltaT);
+					Matrix4f dMat = trans1 - trans0;
+					Global::printMat("dMat", dMat);
+					velMat = dMat * trans0.inverse();
+					Global::printMat("dMat*inverse=", velMat);
+					velMat *= (1.0/ ctrl_params.deltaT);
+					Global::printMat("velmat=", velMat);
 					velMat = velMat.transpose();
+					Global::printMat("velmat'=", velMat);
 				}
 			}
 		}
-		PRINT_F("vel:\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf",
-			velMat(0,0), velMat(0,1), velMat(0,2), velMat(0,3), 
-			velMat(1,0), velMat(1,1), velMat(1,2), velMat(1,3), 
-			velMat(2,0), velMat(2,1), velMat(2,2), velMat(2,3),
-			velMat(3,0), velMat(3,1), velMat(3,2), velMat(3,3));
 
 		// fill sdf and velocity field
 		float cellVolume = grid->grid_size[0] * grid->grid_size[1] * grid->grid_size[2];

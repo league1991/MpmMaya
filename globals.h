@@ -5,6 +5,7 @@
 class Global
 {
 public:
+	static void printMat(char* name, Matrix4f& mat);
 	static MPlug getPlug(MPxNode* node, const char* longName);
 
 	static MColor getColor(const MPlug& plug, MStatus* s = NULL);
