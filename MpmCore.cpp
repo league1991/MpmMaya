@@ -446,7 +446,7 @@ bool MpmCore::getSDFNormal(Vector3f& pos, Vector3f& out_sdf_normal)
 	Vector3f sdf_log;
 	float sdf = getSDFPhai_interploted(pos, 0, vco_log, pos_cur_log, grid_cur_log,
 							 pos_next_log, grid_next_log, sdf_log);
-	if(sdf<0)
+	if(sdf>=0)
 		return false;
 
 	Vector3f vco_log1;
@@ -561,7 +561,6 @@ void MpmCore::solve_grid_collision()
 				Vector3f vco= (1-ctrl_params.iteplote) * cell->collision_velocity_prev
 								+ ctrl_params.iteplote * cell->collision_velocity;
 
-				vco *= (ctrl_params.deltaT / ctrl_params.maya_deltaT);
 				Vector3f sdf_normal;
 				Vector3f grid_pos= grid->grid_min + grid->grid_size.cwiseProduct(Vector3f(x,y,z));// * index;
 				if(getSDFNormal(grid_pos,sdf_normal))
@@ -864,9 +863,7 @@ void MpmCore::solve_particle_collision()
 		GridNode* cell = grid->getNode(p_grid_index_i[0], p_grid_index_i[1], p_grid_index_i[2]);
 		Vector3f vco= (1-ctrl_params.iteplote) * cell->collision_velocity_prev
 						+ ctrl_params.iteplote * cell->collision_velocity;
-
-		vco *= (ctrl_params.deltaT / ctrl_params.maya_deltaT);
-
+		
 		if(getSDFNormal(ptcl->position,sdf_normal))
 		//if(getSDFNormal_box(p_grid_index_i_new,sdf_normal))
 		//if(sdf>0)
@@ -909,6 +906,8 @@ bool MpmCore::step(int ithFrame, float deltaTime, int nSubstep)
 	int msArray[8] = {0,0,0,0, 0,0,0,0};
 	ctrl_params.deltaT = deltaTime / nSubstep;
 	ctrl_params.maya_deltaT = deltaTime;
+
+	PRINT_F("delta time %f, maya %f", ctrl_params.deltaT, ctrl_params.maya_deltaT);
 	for (int ithStep = 0; ithStep < nSubstep; ++ithStep)
 	{
 		ctrl_params.iteplote = (float)(ithStep + 1.f) / (float)nSubstep;

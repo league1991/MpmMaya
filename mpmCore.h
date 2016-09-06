@@ -189,11 +189,12 @@ public:
 				if (abs(trans0.determinant()) > 0.01)
 				{
 					Matrix4f dMat = trans1 - trans0;
-					Global::printMat("dMat", dMat);
+					//Global::printMat("dMat", dMat);
 					velMat = dMat * trans0.inverse();
-					Global::printMat("dMat*inverse=", velMat);
+					//Global::printMat("dMat*inverse=", velMat);
 					velMat *= (1.0/ ctrl_params.maya_deltaT);
-					Global::printMat("velmat=", velMat);
+					//Global::printMat("velmat=", velMat);
+					//PRINT_F("delata t %f maya %f", ctrl_params.deltaT, ctrl_params.maya_deltaT);
 				}
 			}
 		}
