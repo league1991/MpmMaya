@@ -10,6 +10,11 @@ public:
 		INIT_TWO_SPHERES=2,
 		INIT_EMPTY = 3,
 	};
+	enum DisplayType
+	{
+		DISP_THIS_FRAME = 0,
+		DISP_LAST_FRAME = 1
+	};
 	enum RasterizeType
 	{
 		RASTERIZE_SPHERE = 0,
@@ -45,7 +50,7 @@ private:
 	bool				initParticle(int ithFrame);
 	MStatus				computeVDB(openvdb::FloatGrid::Ptr& ls, float voxelSize, float halfWidth, float volumeFactor);
 	bool				updateCollider(int ithFrame);
-
+	void				drawSdf( int frame, bool showCurrent = true, bool showPrev = false, bool showCurrentVel = true, bool showPrevVel = false );
 	MBoundingBox		m_box;
 	MpmCore				m_core;
 
@@ -102,6 +107,11 @@ private:
 	static MObject		s_colliderVdb;
 	static MObject		s_colliderTrans;
 
+	// display
+	static MObject		s_displayType;
+	static MObject		s_displaySdf;
+	static MObject		s_displayGrid;
+
 	static const char*  s_boxMinName[2];
 	static const char*	s_boxMaxName[2];
 	static const char*  s_cellSizeName[2];
@@ -147,5 +157,8 @@ private:
 	static const char*  s_saveFilePrefixName[2];
 	static const char*  s_colliderVdbName[2];
 	static const char*  s_colliderTransName[2];
+	static const char*  s_displayTypeName[2];
+	static const char*  s_displaySdfName[2];
+	static const char*  s_displayGridName[2];
 };
 

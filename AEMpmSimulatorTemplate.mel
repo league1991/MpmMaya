@@ -79,6 +79,7 @@ global proc execSimulator(string $nodeName, int $type)
 	int  $begTime = `currentTime -q`;
 	int  $t;
 	$startSecond = `timerX`;
+	setAttr ($nodeName+".displayType") 1;
 	for ($t = $begTime; $t < $begTime + $length; $t++)
 	{	
 		// step progress bar
@@ -107,6 +108,8 @@ global proc execSimulator(string $nodeName, int $type)
 		}
 		currentTime ($t+1);
 	}
+	setAttr ($nodeName+".displayType") 0;
+	
 	// code that is being timed
 	$totalSecond = `timerX -startTime $startSecond`;
 	$totalFrame= $t - $begTime;
@@ -283,6 +286,12 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 			editorTemplate -endLayout;		
 		editorTemplate -endLayout;
 		
+		editorTemplate -beginLayout "Display" -collapse true;	
+			editorTemplate -addControl "displayType";
+			editorTemplate -addControl "displaySdf";
+			editorTemplate -addControl "displayCell";
+		editorTemplate -endLayout;
+		
 		editorTemplate -beginLayout "Load and Save" -collapse true;
 			editorTemplate -addControl "loadFilePath";
 			editorTemplate -callCustom "initSaveControl" "modifySaveControl" "noAttr";
@@ -294,6 +303,12 @@ global proc AEMpmSimulatorTemplate(string $nodeName)
 		editorTemplate -suppress "initParticle";
 		editorTemplate -suppress "inputParticle";
 		editorTemplate -suppress "outputParticle";
+		editorTemplate -suppress "colliderVdb";
+				
+		editorTemplate -beginLayout "Collision" -collapse true;
+			editorTemplate -addControl "colliderTrans";
+		editorTemplate -endLayout;
+		
 		editorTemplate -beginLayout "Output NParticle" -collapse true;
 			editorTemplate -addControl "particleName";
 			editorTemplate -addControl "particleSampleRate";

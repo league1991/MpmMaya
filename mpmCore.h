@@ -56,9 +56,7 @@ struct GridField
 				index[1]>=0 && index[1]<grid_division[1] &&
 				index[2]>=0 && index[2]<grid_division[2];
 	}
-
-	void drawSdf(bool showCurrent = true, bool showPrev = false, bool showCurrentVel = true, bool showPrevVel = false);
-
+	
 	GridField(const Vector3f& grid_size, const Vector3f& grid_min, const Vector3i& grid_division, int boundary);
 };
 

@@ -11,6 +11,11 @@ public:
 		DATA_MATRIX   = (1<<1),
 		DATA_GRID	  = (1<<2)
 	};
+	struct GridData 
+	{
+		Vector3f m_collisionVelocity;
+		float	 m_collisionSdf;
+	};
 	MpmStatus(){}
 	MpmStatus( const deque<Particle>& particles, const vector<Matrix4f>& mat, const GridField* grid );
 	~MpmStatus();
@@ -26,12 +31,8 @@ public:
 	const vector<Matrix4f>&getMatrix()const{return m_matrices;}
 	void				writeStatus(ofstream& file) const;
 	void				readStatus(ifstream& file, bool append = false);
+	const vector<GridData>&getGridData()const{return m_gridData;}
 private:
-	struct GridData 
-	{
-		Vector3f m_collisionVelocity;
-		float	 m_collisionSdf;
-	};
 	deque<Particle>	m_particles;
 	vector<Matrix4f>m_matrices;
 	vector<GridData>m_gridData;

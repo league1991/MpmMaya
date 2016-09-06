@@ -49,7 +49,13 @@ MObject MpmSimulator::s_saveFilePath;
 MObject MpmSimulator::s_saveEveryFrame;
 MObject	MpmSimulator::s_colliderVdb;
 MObject	MpmSimulator::s_colliderTrans;
+MObject	MpmSimulator::s_displayType;
+MObject	MpmSimulator::s_displaySdf;
+MObject	MpmSimulator::s_displayGrid;
 
+const char* MpmSimulator::s_displayTypeName[2]={"displayType","disptype"};
+const char* MpmSimulator::s_displaySdfName[2]={"displaySdf", "dispsdf"};
+const char* MpmSimulator::s_displayGridName[2]={"displayCell","dispcell"};
 const char* MpmSimulator::s_colliderTransName[2]={"colliderTrans", "cldrtrans"};
 const char* MpmSimulator::s_colliderVdbName[2]={"colliderVdb","cldrvdb"};
 const char* MpmSimulator::s_saveEveryFrameName[2]={"saveEveryFrame","saveef"};
@@ -116,6 +122,12 @@ int MpmSimulator::getCurFrame()
 void MpmSimulator::draw( M3dView & view, const MDagPath & path, M3dView::DisplayStyle style, M3dView:: DisplayStatus )
 {
 	int ithFrame = getCurFrame();
+	MPlug displayTypePlug = Global::getPlug(this, s_displayTypeName[0]);
+	if (displayTypePlug.asShort() == DISP_LAST_FRAME)
+	{
+		ithFrame--;
+	}
+
 	view.beginGL();
 	glPushAttrib(GL_CURRENT_BIT);
 
@@ -130,6 +142,10 @@ void MpmSimulator::draw( M3dView & view, const MDagPath & path, M3dView::Display
 	glMultMatrixd(&matBuf[0][0]);
 	{
 		drawCell();
+
+		MPlug sdfPlug = Global::getPlug(this, s_displaySdfName[0]);
+		if (sdfPlug.asBool())
+			drawSdf(ithFrame, true, true, true, true);
 
 		m_box = MBoundingBox(MPoint(-1.1,-0.5,-1.1), MPoint(4.1,0.5,1.1));
 
@@ -165,6 +181,59 @@ void MpmSimulator::postConstructor()
 	if (s)
 	{
 		nodeFn.setName( "MpmSimulatorShape#", &s);
+	}
+}
+
+
+void MpmSimulator::drawSdf( int frame, bool showCurrent /*= true*/, bool showPrev /*= false*/, bool showCurrentVel /*= true*/, bool showPrevVel /*= false*/ )
+{
+	const MpmStatus* pS = m_core.getRecorder().getStatusPtr(frame);
+	if(!pS)
+		return;
+	Vector3f grid_min, grid_size;
+	Vector3i grid_division;
+	m_core.getGridConfig(grid_min, grid_size, grid_division);
+	const vector<MpmStatus::GridData>& gridData = pS->getGridData();
+	if (gridData.size() <= 0)
+	{
+		return;
+	}
+
+	glPointSize(2.f);
+	Vector3f offset0 = grid_size * 0.3;
+	Vector3f offset1 = grid_size * 0.1;
+	const MpmStatus::GridData* pCell = &gridData[0];
+	for (int k = 0; k < grid_division[2]; ++k)
+	{
+		for (int j = 0; j < grid_division[1]; ++j)
+		{
+			for (int i = 0; i < grid_division[0]; ++i, ++pCell)
+			{
+				Vector3f cellOri = grid_min + grid_size.cwiseProduct(Vector3f(i,j,k));
+				if (pCell->m_collisionSdf < 0)
+				{
+					Vector3f pos = cellOri + offset0;
+					if (showCurrent)
+					{
+						float v = -pCell->m_collisionSdf;
+						float alpha = (v > 1.f ? 1.f : v);
+						glColor4f(255/255.f,201/255.f,14/255.f, alpha);
+						glBegin(GL_POINTS);
+						glVertex3f(pos[0], pos[1], pos[2]);
+						glEnd();
+					}
+					if (showCurrentVel)
+					{
+						Vector3f end = pos + pCell->m_collisionVelocity * 1/24.0;
+						glColor4f(255/255.f,201/255.f,14/255.f,255/255.f);
+						glBegin(GL_LINES);
+						glVertex3f(pos[0], pos[1], pos[2]);
+						glVertex3f(end[0], end[1], end[2]);
+						glEnd();
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -204,24 +273,23 @@ void MpmSimulator::drawCell()
 	glVertex3f(maxPnt[0],maxPnt[1],maxPnt[2]);
 	glEnd();
 
-	glBegin(GL_LINES);
-	for (int i = 0; i < nCell[0]; ++i)
+	MPlug cellPlug = Global::getPlug(this, s_displayGridName[0]);
+	if (cellPlug.asBool())
 	{
-		glVertex3f(minPnt[0]+i*cellSize[0], minPnt[1], minPnt[2]);
-		glVertex3f(minPnt[0]+i*cellSize[0], minPnt[1], maxPnt[2]);
+		glBegin(GL_LINES);
+		for (int i = 0; i < nCell[0]; ++i)
+		{
+			glVertex3f(minPnt[0]+i*cellSize[0], minPnt[1], minPnt[2]);
+			glVertex3f(minPnt[0]+i*cellSize[0], minPnt[1], maxPnt[2]);
+		}
+		for (int i = 0; i < nCell[2]; ++i)
+		{
+			glVertex3f(minPnt[0], minPnt[1], minPnt[2]+i*cellSize[2]);
+			glVertex3f(maxPnt[0], minPnt[1], minPnt[2]+i*cellSize[2]);
+		}
+		glEnd();
 	}
-	for (int i = 0; i < nCell[2]; ++i)
-	{
-		glVertex3f(minPnt[0], minPnt[1], minPnt[2]+i*cellSize[2]);
-		glVertex3f(maxPnt[0], minPnt[1], minPnt[2]+i*cellSize[2]);
-	}
-	glEnd();
 
-	GridField* pGrid = m_core.getGridPtr();
-	if (pGrid)
-	{
-		pGrid->drawSdf(true,true,true,true);
-	}
 }
 
 void MpmSimulator::drawIcon()
@@ -909,6 +977,33 @@ MStatus MpmSimulator::initialize()
 		mAttr.setStorable(true);
 		mAttr.setUsesArrayDataBuilder(true);
 		s = addAttribute(s_colliderTrans);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+	}
+	// display
+	{
+		s_displayType = eAttr.create(s_displayTypeName[0], s_displayTypeName[1]);
+		eAttr.addField("This Frame",  DISP_THIS_FRAME);
+		eAttr.addField("Last Frame", DISP_LAST_FRAME);
+		eAttr.setDefault(DISP_THIS_FRAME);
+		eAttr.setHidden(false);
+		eAttr.setReadable(true);
+		eAttr.setWritable(true);
+		eAttr.setStorable(true);
+		eAttr.setAffectsAppearance(true);
+		s= addAttribute(s_displayType);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+		
+		s_displaySdf = nAttr.create(s_displaySdfName[0], s_displaySdfName[1], MFnNumericData::kBoolean, false, &s);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_displaySdf);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+
+		s_displayGrid= nAttr.create(s_displayGridName[0], s_displayGridName[1], MFnNumericData::kBoolean, true, &s);
+		nAttr.setHidden(false);
+		nAttr.setAffectsAppearance(true);
+		s = addAttribute(s_displayGrid);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
 	return s;
