@@ -196,8 +196,6 @@ public:
 					Global::printMat("dMat*inverse=", velMat);
 					velMat *= (1.0/ ctrl_params.deltaT);
 					Global::printMat("velmat=", velMat);
-					velMat = velMat.transpose();
-					Global::printMat("velmat'=", velMat);
 				}
 			}
 		}

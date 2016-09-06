@@ -1011,7 +1011,7 @@ bool MpmSimulator::updateCollider(int ithFrame)
 		if (!s)
 			continue;
 
-		MMatrix transM = transData.matrix();
+		MMatrix transM = transData.matrix().transpose();
 		Eigen::Matrix4f transE;
 		transE <<	transM(0,0), transM(0,1), transM(0,2), transM(0,3), 
 					transM(1,0), transM(1,1), transM(1,2), transM(1,3), 
