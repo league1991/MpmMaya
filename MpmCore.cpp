@@ -55,6 +55,73 @@ GridField::~GridField()
 	clear();
 }
 
+void GridField::drawSdf( bool showCurrent /*= true*/, bool showPrev /*= false*/, bool showCurrentVel /*= true*/, bool showPrevVel /*= false*/ )
+{
+	if (!gridBuffer)
+	{
+		return;
+	}
+
+	GridNode* pCell = gridBuffer;
+	glPointSize(2.f);
+	Vector3f offset0 = grid_size * 0.3;
+	Vector3f offset1 = grid_size * 0.1;
+	for (int k = 0; k < grid_division[2]; ++k)
+	{
+		for (int j = 0; j < grid_division[1]; ++j)
+		{
+			for (int i = 0; i < grid_division[0]; ++i, ++pCell)
+			{
+				Vector3f cellOri = grid_min + grid_size.cwiseProduct(Vector3f(i,j,k));
+				if (pCell->collision_sdf < 0)
+				{
+					Vector3f pos = cellOri + offset0;
+					if (showCurrent)
+					{
+						float v = -pCell->collision_sdf;
+						float alpha = (v > 1.f ? 1.f : v);
+						glColor4f(255/255.f,201/255.f,14/255.f, alpha);
+						glBegin(GL_POINTS);
+						glVertex3f(pos[0], pos[1], pos[2]);
+						glEnd();
+					}
+					if (showCurrentVel)
+					{
+						Vector3f end = pos + pCell->collision_velocity * 1/24.0;
+						glColor4f(255/255.f,201/255.f,14/255.f,255/255.f);
+						glBegin(GL_LINES);
+						glVertex3f(pos[0], pos[1], pos[2]);
+						glVertex3f(end[0], end[1], end[2]);
+						glEnd();
+					}
+				}
+				if (pCell->collision_sdf_prev < 0)
+				{
+					Vector3f pos = cellOri + offset1;
+					if (showPrev)
+					{
+						float v = -pCell->collision_sdf_prev;
+						float alpha = (v > 1.f ? 1.f : v);
+						glColor4f(153/255.f,217/255.f,234/255.f, alpha);
+						glBegin(GL_POINTS);
+						glVertex3f(pos[0], pos[1], pos[2]);
+						glEnd();
+					}
+					if (showPrevVel)
+					{
+						Vector3f end = pos + pCell->collision_velocity_prev * 1/24.0;
+						glColor4f(153/255.f,217/255.f,234/255.f,255/255.f);
+						glBegin(GL_LINES);
+						glVertex3f(pos[0], pos[1], pos[2]);
+						glVertex3f(end[0], end[1], end[2]);
+						glEnd();
+					}
+				}
+			}
+		}
+	}
+}
+
 float MpmCore::NX_bspline( float m )
 {
 	m=fabs(m);
@@ -393,8 +460,89 @@ void MpmCore::compute_grid_velocity()
 			//fs.close();
 }
 
-bool MpmCore::getSDFNormal( Vector3i& grid_idx, Vector3f& out_sdf_normal )
+
+
+
+float MpmCore::getSDFPhai_interploted(Vector3f& pos, int time, Vector3f& vco_log, Vector3f& pos_cur_log, Vector3f& grid_cur_log,
+							 Vector3f& pos_next_log, Vector3f& grid_next_log, Vector3f& sdf_log)
 {
+
+	Vector3i grid_idx = ((pos - grid->grid_min).cwiseQuotient(grid->grid_size)).cast<int>();
+
+	GridNode* cell = grid->inGrid(grid_idx) ? grid->getNode(grid_idx[0],grid_idx[1],grid_idx[2]) : NULL;
+	//velocity of collider
+	Vector3f vco;
+	if(cell)
+	{
+		vco =(1-ctrl_params.iteplote)* cell->collision_velocity_prev
+				+ctrl_params.iteplote * cell->collision_velocity;
+	}
+	else
+		vco.setZero();
+
+	//pos of this maya frame
+	Vector3f pos_cur = pos - ctrl_params.iteplote * ctrl_params.maya_deltaT * vco;
+	Vector3f grid_idx_cur= grid->getGridIdx(pos_cur);
+	float sdf_cur= getSDFPhaiPrev(grid_idx_cur.cast<int>());
+
+	//pos of next maya frame
+	Vector3f pos_next=pos+(1-ctrl_params.iteplote)*ctrl_params.maya_deltaT*vco;
+	Vector3f grid_idx_next=grid->getGridIdx(pos_next);
+	float sdf_next=getSDFPhaiNow(grid_idx_next.cast<int>());
+
+	float sdf = (1.f - ctrl_params.iteplote) * sdf_cur + ctrl_params.iteplote * sdf_next;
+
+	vco_log=vco;
+	pos_cur_log=pos_cur;
+	grid_cur_log=grid_idx_cur;
+	pos_next_log=pos_next;
+	grid_next_log=grid_idx_next;
+	sdf_log= Vector3f(sdf_cur, sdf_next, sdf);
+
+	return sdf;
+}
+
+bool MpmCore::getSDFNormal(Vector3f& pos, Vector3f& out_sdf_normal)
+{
+	Vector3f vco_log;
+	Vector3f pos_cur_log;
+	Vector3f grid_cur_log;
+	Vector3f pos_next_log;
+	Vector3f grid_next_log; 
+	Vector3f sdf_log;
+	float sdf = getSDFPhai_interploted(pos, 0, vco_log, pos_cur_log, grid_cur_log,
+							 pos_next_log, grid_next_log, sdf_log);
+	if(sdf<0)
+		return false;
+
+	Vector3f vco_log1;
+	Vector3f pos_cur_log1;
+	Vector3f grid_cur_log1;
+	Vector3f pos_next_log1;
+	Vector3f grid_next_log1; 
+	Vector3f sdf_log1;
+
+	Vector3f pos_dx = pos - Vector3f(grid->grid_size[0], 0, 0);
+	Vector3f pos_dy = pos - Vector3f(0, grid->grid_size[1], 0);
+	Vector3f pos_dz = pos - Vector3f(0, 0, grid->grid_size[2]);
+
+	out_sdf_normal[0]=-(getSDFPhai_interploted(pos_dx, 0,vco_log1, pos_cur_log1, grid_cur_log1,
+							 pos_next_log1, grid_next_log1, sdf_log1)-sdf);
+	out_sdf_normal[1]=-(getSDFPhai_interploted(pos_dy, 0,vco_log1, pos_cur_log1, grid_cur_log1,
+							 pos_next_log1, grid_next_log1, sdf_log1)-sdf);
+	out_sdf_normal[2]=-(getSDFPhai_interploted(pos_dz, 0,vco_log1, pos_cur_log1, grid_cur_log1,
+							 pos_next_log1, grid_next_log1, sdf_log1)-sdf);
+	
+	if(out_sdf_normal.norm()<=max(abs(sdf_log[1]-sdf_log[0])*(1-ctrl_params.iteplote),0.0001f))
+		return false;
+	out_sdf_normal.normalize();
+	return true;
+}
+/*
+bool MpmCore::getSDFNormal( Vector3f& pos, Vector3f& out_sdf_normal )
+{
+	Vector3i grid_idx = ((pos - grid->grid_min).cwiseQuotient(grid->grid_size)).cast<int>();
+
 	const int idxX = grid_idx[0];
 	const int idxY = grid_idx[1];
 	const int idxZ = grid_idx[2];
@@ -410,7 +558,7 @@ bool MpmCore::getSDFNormal( Vector3i& grid_idx, Vector3f& out_sdf_normal )
 
 	out_sdf_normal.normalize();
 	return true;
-}
+}*/
 
 bool MpmCore::getSDFNormal_box( Vector3f& grid_idx_new, Vector3f& out_sdf_normal )
 {
@@ -463,14 +611,29 @@ void MpmCore::solve_grid_collision()
 				if(!cell->active)
 					continue;
 				Vector3i index(x,y,z);
+				/*
 				Vector3f sdf_normal;
 				if(getSDFNormal(index,sdf_normal))
 				{
-					//fs<<x<<","<<y<<","<<z<<","<<sdf_normal[0]<<","<<sdf_normal[1]<<","<<sdf_normal[2]<<endl;
 					Vector3f updated_v;
 					if( updateVelocityWithSolvingCollision( cell->collision_velocity, cell->velocity_new, sdf_normal, updated_v) )
 					{
 						cell->velocity_new=updated_v;
+					}
+				}*/
+
+
+				//velocity of collider
+				Vector3f vco= (1-ctrl_params.iteplote) * cell->collision_velocity_prev
+								+ ctrl_params.iteplote * cell->collision_velocity;
+				Vector3f sdf_normal;
+				Vector3f grid_pos= grid->grid_min + grid->grid_size.cwiseProduct(Vector3f(x,y,z));// * index;
+				if(getSDFNormal(grid_pos,sdf_normal))
+				{
+					Vector3f updated_v;
+					if( updateVelocityWithSolvingCollision( vco, cell->velocity_new, sdf_normal, updated_v) )
+					{
+						cell->velocity_new = updated_v;
 					}
 				}
 			}
@@ -677,7 +840,7 @@ void MpmCore::from_grid_to_particle()
 			cout<<"vel:"<<ptcl->velocity[0]<<" "<<ptcl->velocity[1]<<" "<<ptcl->velocity[2]<<endl;
 	}
 }
-
+/*
 void MpmCore::solve_particle_collision()
 {
 	for(int pit=0;pit<particles.size();pit++)
@@ -736,6 +899,48 @@ void MpmCore::solve_particle_collision()
 			}
 		}
 	}
+}*/
+
+
+//step 9 handle particle collision
+void MpmCore::solve_particle_collision()
+{
+	for(int pit=0;pit<particles.size();pit++)
+	{
+		Particle* ptcl = &particles[pit];
+		if(!ptcl->isValid)
+			continue;
+		Vector3f p_grid_index_f = ptcl->getGridIdx(grid->grid_min, grid->grid_size);
+		Vector3i p_grid_index_i = ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
+		Vector3i index_check_1=p_grid_index_i-Vector3i(1,1,1);
+		Vector3i index_check_2=p_grid_index_i+Vector3i(1,1,1);
+		if(!inGrid(p_grid_index_i,grid->grid_division)||!inGrid(index_check_1,grid->grid_division)||!inGrid(index_check_2, grid->grid_division))
+		{
+			ptcl->isValid=false;
+			continue;
+		}
+
+		Vector3f p_grid_index_i_new=(ptcl->position + ptcl->velocity * ctrl_params.deltaT - grid->grid_min).cwiseQuotient(grid->grid_size);
+
+		float sdf=0;
+		Vector3f sdf_normal;
+		//velocity of collider
+		GridNode* cell = grid->getNode(p_grid_index_i[0], p_grid_index_i[1], p_grid_index_i[2]);
+		Vector3f vco= (1-ctrl_params.iteplote) * cell->collision_velocity_prev
+						+ ctrl_params.iteplote * cell->collision_velocity;
+
+		if(getSDFNormal(ptcl->position,sdf_normal))
+		//if(getSDFNormal_box(p_grid_index_i_new,sdf_normal))
+		//if(sdf>0)
+		{
+			Vector3f updated_v;
+			sdf_normal.normalize();
+			if( updateVelocityWithSolvingCollision( vco, ptcl->velocity, sdf_normal, updated_v) )
+			{
+				ptcl->velocity=updated_v;
+			}
+		}
+	}
 }
 
 void MpmCore::update_position()
@@ -750,11 +955,12 @@ void MpmCore::update_position()
 bool MpmCore::step(int ithFrame, float deltaTime, int nSubstep)
 {
 	// 更新粒子位置
-	const MpmStatus* status = m_recorder.getStatusPtr(ithFrame);
-	bool res = false;
+	const MpmStatus* status = m_recorder.getStatusPtr(ithFrame-1);
+	bool res = true;
 	if (status)
 	{
-		res = status->copy(particles);
+		res &= status->copy(particles);
+		res &= status->copyGrid(grid);
 	}
 	if (!res)
 	{
@@ -764,8 +970,10 @@ bool MpmCore::step(int ithFrame, float deltaTime, int nSubstep)
 	initTimer();
 	int msArray[8] = {0,0,0,0, 0,0,0,0};
 	ctrl_params.deltaT = deltaTime / nSubstep;
+	ctrl_params.maya_deltaT = deltaTime;
 	for (int ithStep = 0; ithStep < nSubstep; ++ithStep)
 	{
+		ctrl_params.iteplote = (float)(ithStep + 1.f) / (float)nSubstep;
 		if(ctrl_params.frame!=0)
 		{
 			//from_particles_to_grid();
@@ -796,6 +1004,7 @@ bool MpmCore::step(int ithFrame, float deltaTime, int nSubstep)
 
 		update_position();
 		msArray[7] += getDeltaTime();
+		ctrl_params.frame++;
 	}
 
 	PRINT_F("from_particles_to_grid:		%f", float(msArray[0])/CLOCKS_PER_SEC);
@@ -806,10 +1015,9 @@ bool MpmCore::step(int ithFrame, float deltaTime, int nSubstep)
 	PRINT_F("from_grid_to_particle:			%f", float(msArray[5])/CLOCKS_PER_SEC);
 	PRINT_F("solve_particle_collision:		%f", float(msArray[6])/CLOCKS_PER_SEC);
 	PRINT_F("update_position:				%f", float(msArray[7])/CLOCKS_PER_SEC);
-	ctrl_params.frame++;
 
 	// 将模拟结果记下来
-	m_recorder.addStatus(ithFrame+1, MpmStatus(particles));
+	m_recorder.addStatus(ithFrame, MpmStatus(particles, m_worldMatList, grid));
 	return true;
 }
 
@@ -847,7 +1055,11 @@ void MpmCore::createGrid(const Vector3f& gridMin,
 					continue;
 				}
 
-				grid->getNode(i,j,k)->collision_sdf= d * -1;
+				GridNode* cell = grid->getNode(i,j,k);
+				cell->collision_sdf= d;
+				cell->collision_sdf_prev= d;
+				cell->collision_velocity.setZero();
+				cell->collision_velocity_prev.setZero();
 				//PRINT_F("depth %d %d %d,  %f", i,j,k,grid->grids[i][j][k]->collision_sdf);
 			}
 		}
@@ -900,7 +1112,7 @@ void MpmCore::addBall(const Vector3f& center, float radius, int nParticlePerCell
 			}
 		}
 	}
-	commitInit(ithFrame);
+	//commitInit(ithFrame);
 }
 
 void MpmCore::create_snow_ball()
@@ -1000,7 +1212,7 @@ void MpmCore::addTwoBalls(int nParticlePerCell, int ithFrame)
 			}
 		}
 	}
-	commitInit(ithFrame);
+	//commitInit(ithFrame);
 }
 
 bool MpmCore::initGrid(const Vector3f& gridMin,
@@ -1126,7 +1338,8 @@ bool MpmCore::commitInit( int ithFrame )
 {
 	init_particle_volume_velocity();
 
-	m_recorder.addStatus(ithFrame, MpmStatus(particles));
+	m_recorder.addStatus(ithFrame-1, MpmStatus(particles, m_worldMatList, grid));
+	m_recorder.addStatus(ithFrame, MpmStatus(particles, m_worldMatList, grid));
 	return false;
 }
 
@@ -1141,6 +1354,24 @@ clock_t MpmCore::getDeltaTime()
 void MpmCore::initTimer()
 {
 	m_timer = clock();
+}
+
+bool MpmCore::resetSdf()
+{
+	int bdy = grid->boundary;
+	for (int i = bdy; i < grid->grid_division[0] - bdy; ++i)
+	{
+		for (int j = bdy; j < grid->grid_division[1] - bdy; ++j)
+		{
+			for (int k = bdy; k < grid->grid_division[2] - bdy; ++k)
+			{
+				GridNode* cell = grid->getNode(i,j,k);
+				cell->collision_sdf = 0.f;
+				cell->collision_velocity.setZero();
+			}
+		}
+	}
+	return true;
 }
 
 void control_parameters::setting_1()
@@ -1179,7 +1410,7 @@ GridNode::GridNode()
 	external_force = Vector3f(0.f,0.f,0.f);
 	collision_velocity = Vector3f(0.f,0.f,0.f);
 	collision_sdf=0;
-
+	collision_sdf_prev = 0.f;
 	active=false;
 }
 

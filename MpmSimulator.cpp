@@ -47,7 +47,11 @@ MObject MpmSimulator::s_immediateUpdate;
 MObject MpmSimulator::s_saveFilePrefix;
 MObject MpmSimulator::s_saveFilePath;
 MObject MpmSimulator::s_saveEveryFrame;
+MObject	MpmSimulator::s_colliderVdb;
+MObject	MpmSimulator::s_colliderTrans;
 
+const char* MpmSimulator::s_colliderTransName[2]={"colliderTrans", "cldrtrans"};
+const char* MpmSimulator::s_colliderVdbName[2]={"colliderVdb","cldrvdb"};
 const char* MpmSimulator::s_saveEveryFrameName[2]={"saveEveryFrame","saveef"};
 const char* MpmSimulator::s_saveFilePathName[2]={"saveFolder","savefdr"};
 const char* MpmSimulator::s_saveFilePrefixName[2]={"saveFilePrefix","savefpfx"};
@@ -111,6 +115,7 @@ int MpmSimulator::getCurFrame()
 
 void MpmSimulator::draw( M3dView & view, const MDagPath & path, M3dView::DisplayStyle style, M3dView:: DisplayStatus )
 {
+	int ithFrame = getCurFrame();
 	view.beginGL();
 	glPushAttrib(GL_CURRENT_BIT);
 
@@ -128,10 +133,10 @@ void MpmSimulator::draw( M3dView & view, const MDagPath & path, M3dView::Display
 
 		m_box = MBoundingBox(MPoint(-1.1,-0.5,-1.1), MPoint(4.1,0.5,1.1));
 
-		MpmStatus status;
-		if(m_core.getRecorder().getStatus(getCurFrame(), status))
+		const MpmStatus* status = m_core.getRecorder().getStatusPtr(ithFrame-1);
+		if(status)
 		{
-			status.draw();
+			status->draw();
 		}
 		
 
@@ -211,6 +216,12 @@ void MpmSimulator::drawCell()
 		glVertex3f(maxPnt[0], minPnt[1], minPnt[2]+i*cellSize[2]);
 	}
 	glEnd();
+
+	GridField* pGrid = m_core.getGridPtr();
+	if (pGrid)
+	{
+		pGrid->drawSdf(true,true,true,true);
+	}
 }
 
 void MpmSimulator::drawIcon()
@@ -876,6 +887,30 @@ MStatus MpmSimulator::initialize()
 		s = addAttribute(s_saveFilePrefix);
 		CHECK_MSTATUS_AND_RETURN_IT(s);
 	}
+	// collider
+	{
+		s_colliderVdb = tAttr.create(s_colliderVdbName[0], s_colliderVdbName[1], MFnData::kPlugin, &s);
+		tAttr.setReadable(false);
+		tAttr.setCached(false);
+		tAttr.setArray(true);
+		tAttr.setUsesArrayDataBuilder(true);
+		tAttr.setAffectsAppearance(true);
+		s = addAttribute(s_colliderVdb);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+
+
+		s_colliderTrans = mAttr.create(s_colliderTransName[0], s_colliderTransName[1]);
+		mAttr.setHidden(false);
+		mAttr.setReadable(true);
+		mAttr.setWritable(true);
+		mAttr.setKeyable(true);
+		mAttr.setCached(false);
+		mAttr.setArray(true);
+		mAttr.setStorable(true);
+		mAttr.setUsesArrayDataBuilder(true);
+		s = addAttribute(s_colliderTrans);
+		CHECK_MSTATUS_AND_RETURN_IT(s);
+	}
 	return s;
 }
 
@@ -941,6 +976,9 @@ bool MpmSimulator::initSolver()
 	{
 		res &= true;
 	}
+	updateCollider(frame);
+	m_core.commitInit(frame);
+
 	if (res)
 	{
 		MGlobal::displayInfo("init succeed!");
@@ -950,6 +988,61 @@ bool MpmSimulator::initSolver()
 		MGlobal::displayInfo("init fail!");
 	}
 	return res;
+}
+
+bool MpmSimulator::updateCollider(int ithFrame)
+{
+	MStatus s;
+	MPlug colliderVdbPlug = Global::getPlug(this, s_colliderVdbName[0]);
+	MPlug colliderTransPlug= Global::getPlug(this, s_colliderTransName[0]);
+		
+	m_core.resetSdf();
+	for (unsigned i = 0; i < colliderVdbPlug.numElements(&s); i++)
+	{
+		MPlug ithElementPlug = colliderVdbPlug.elementByPhysicalIndex(i, &s);
+		if (!s || !ithElementPlug.isConnected())
+			continue;
+
+		int logicalIdx     = ithElementPlug.logicalIndex(&s);
+		MPlug ithTransPlug= colliderTransPlug.elementByLogicalIndex(logicalIdx);
+
+		MObject transObj = ithTransPlug.asMObject();
+		MFnMatrixData transData(transObj, &s);
+		if (!s)
+			continue;
+
+		MMatrix transM = transData.matrix();
+		Eigen::Matrix4f transE;
+		transE <<	transM(0,0), transM(0,1), transM(0,2), transM(0,3), 
+					transM(1,0), transM(1,1), transM(1,2), transM(1,3), 
+					transM(2,0), transM(2,1), transM(2,2), transM(2,3),
+					transM(3,0), transM(3,1), transM(3,2), transM(3,3);
+
+		MObject valObj;
+		s = ithElementPlug.getValue(valObj);
+		if (!s)
+			continue;
+
+		OpenVDBData* data;
+		s = Global::getVDBData(valObj, data);
+		
+		if (!s || !data)
+			continue;
+
+		std::vector<openvdb::GridBase::ConstPtr> grids;
+		mvdb::getGrids(grids, *data, "");
+		for (int ithGrid = 0; ithGrid < grids.size(); ++ithGrid)
+		{
+			openvdb::GridBase::ConstPtr pGridBase = grids[ithGrid];
+			if (!pGridBase)
+				continue;
+			else if (pGridBase->isType<openvdb::FloatGrid>())
+				m_core.addSdf<openvdb::FloatGrid>(pGridBase, transE, logicalIdx, ithFrame);
+			else if (pGridBase->isType<openvdb::DoubleGrid>())
+				m_core.addSdf<openvdb::DoubleGrid>(pGridBase, transE, logicalIdx, ithFrame);
+		}
+	}
+	return false;
 }
 
 bool MpmSimulator::initParticle(int ithFrame)
@@ -990,11 +1083,12 @@ bool MpmSimulator::initParticle(int ithFrame)
 						velMat(2,0), velMat(2,1), velMat(2,2), velMat(2,3),
 						velMat(3,0), velMat(3,1), velMat(3,2), velMat(3,3);
 			velMatE = velMatEd.cast<float>();
+			/*
 			PRINT_F("vel:\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf\n\t%lf\t%lf\t%lf\t%lf",
 				velMat(0,0), velMat(0,1), velMat(0,2), velMat(0,3), 
 				velMat(1,0), velMat(1,1), velMat(1,2), velMat(1,3), 
 				velMat(2,0), velMat(2,1), velMat(2,2), velMat(2,3),
-				velMat(3,0), velMat(3,1), velMat(3,2), velMat(3,3));
+				velMat(3,0), velMat(3,1), velMat(3,2), velMat(3,3));*/
 		}
 		else
 			velMatE.setZero();
@@ -1032,6 +1126,7 @@ bool MpmSimulator::stepSolver()
 	MPlug deltaTPlug = Global::getPlug(this, s_deltaTName[0]);
 	MPlug nSubstepPlug = Global::getPlug(this, s_nSubStepName[0]);
 	int frame = getCurFrame();
+	updateCollider(frame);
 	return m_core.step(frame, deltaTPlug.asFloat(), nSubstepPlug.asInt());
 }
 

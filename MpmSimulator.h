@@ -44,6 +44,7 @@ private:
 	int					getCurFrame();
 	bool				initParticle(int ithFrame);
 	MStatus				computeVDB(openvdb::FloatGrid::Ptr& ls, float voxelSize, float halfWidth, float volumeFactor);
+	bool				updateCollider(int ithFrame);
 
 	MBoundingBox		m_box;
 	MpmCore				m_core;
@@ -97,6 +98,10 @@ private:
 	static MObject		s_saveFilePath;
 	static MObject		s_saveFilePrefix;
 
+	// collision
+	static MObject		s_colliderVdb;
+	static MObject		s_colliderTrans;
+
 	static const char*  s_boxMinName[2];
 	static const char*	s_boxMaxName[2];
 	static const char*  s_cellSizeName[2];
@@ -140,5 +145,7 @@ private:
 	static const char*  s_saveEveryFrameName[2];
 	static const char*  s_saveFilePathName[2];
 	static const char*  s_saveFilePrefixName[2];
+	static const char*  s_colliderVdbName[2];
+	static const char*  s_colliderTransName[2];
 };
 

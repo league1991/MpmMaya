@@ -9,6 +9,7 @@
 #include <Eigen/SVD>
 #include <Eigen/LU>
 typedef Eigen::Matrix3f Matrix3f;
+typedef Eigen::Matrix4f Matrix4f;
 typedef Eigen::Vector3f	Vector3f;
 typedef Eigen::Vector3i	Vector3i;
 

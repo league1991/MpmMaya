@@ -79,18 +79,30 @@ bool StatusRecorder::writeStatus(const char* fileName, int ithFrame )
 	return false;
 }
 
-MpmStatus::MpmStatus( const deque<Particle>& particles )
+MpmStatus::MpmStatus( const deque<Particle>& particles, const vector<Matrix4f>& mat, const GridField* grid )
 {
 	m_particles = particles;
+	m_matrices  = mat;
+	
+	int nCell = grid->grid_division[0] * grid->grid_division[1] * grid->grid_division[2];
+	m_gridData.resize(nCell);
+	for (int i = 0; i < nCell; ++i)
+	{
+		GridNode* node = grid->gridBuffer + i;
+		GridData& data = m_gridData[i];
+
+		data.m_collisionSdf = node->collision_sdf;
+		data.m_collisionVelocity = node->collision_velocity;
+	}
 }
 
-void MpmStatus::draw()
+void MpmStatus::draw()const
 {
 	float minSpeed = FLT_MAX;
 	float maxSpeed = -FLT_MAX;
 	for (int i = 0; i < m_particles.size(); ++i)
 	{
-		Vector3f& v = m_particles[i].velocity;
+		const Vector3f& v = m_particles[i].velocity;
 		float speed = v.norm();
 		minSpeed = speed < minSpeed ? speed : minSpeed;
 		maxSpeed = speed > maxSpeed ? speed : maxSpeed;
@@ -100,7 +112,7 @@ void MpmStatus::draw()
 	glBegin(GL_POINTS);
 	for (int i = 0; i < m_particles.size(); ++i)
 	{
-		Particle* p = &m_particles[i];
+		const Particle* p = &m_particles[i];
 		if(!p)
 			continue;
 
@@ -114,7 +126,32 @@ void MpmStatus::draw()
 	glEnd();
 }
 
-bool MpmStatus::copy(deque<Particle>& particles )const
+bool MpmStatus::copyGrid( GridField* grid )const
+{
+	if (!grid)
+	{
+		return false;
+	}
+	int nCell = grid->grid_division[0] * grid->grid_division[1] * grid->grid_division[2];
+	if (nCell == m_gridData.size())
+	{
+		GridNode* cell = grid->gridBuffer;
+		for (int i = 0; i < nCell; ++i, ++cell)
+		{
+			cell->collision_sdf_prev = m_gridData[i].m_collisionSdf;
+			cell->collision_velocity_prev = m_gridData[i].m_collisionVelocity;
+		}
+	}
+	return true;
+}
+
+bool MpmStatus::copyMatrices(vector<Matrix4f>& mat)
+{
+	mat = m_matrices;
+	return true;
+}
+
+bool MpmStatus::copy( deque<Particle>& particles)const
 {
 	particles = m_particles;
 	return true;
@@ -130,6 +167,8 @@ MpmStatus::~MpmStatus()
 // 		}
 // 	}
 	m_particles.clear();
+	m_gridData.clear();
+	m_matrices.clear();
 }
 
 void MpmStatus::getParticlePos( int idx, Vector3f& pos )const
@@ -163,6 +202,25 @@ void MpmStatus::writeStatus( ofstream& file ) const
 		const Particle& ptcl = m_particles[i];
 		file.write((char*)&ptcl, sizeof(Particle));
 	}
+
+	unsigned flag = DATA_MATRIX;
+	file.write((char*)&flag, sizeof(flag));
+	unsigned nMat = m_matrices.size();
+	file.write((char*)&nMat, sizeof(nMat));
+	if (nMat > 0)
+	{
+		file.write((char*)&m_matrices[0], sizeof(Matrix4f) * nMat);
+	}
+
+	flag = DATA_GRID;
+	file.write((char*)&flag, sizeof(flag));
+	unsigned nCell = m_gridData.size();
+	file.write((char*)&nCell, sizeof(nCell));
+	if (nCell > 0)
+	{
+		file.write((char*)&m_gridData[0], sizeof(GridData) * nCell);
+	}
+
 }
 
 void MpmStatus::readStatus( ifstream& file, bool append )
@@ -178,4 +236,36 @@ void MpmStatus::readStatus( ifstream& file, bool append )
 		ptcl.pid = m_particles.size();
 		m_particles.push_back(ptcl);
 	}
+
+	unsigned flag;
+	while(1)
+	{
+		file.read((char*)&flag, sizeof(flag));
+		if (!file)
+		{
+			break;
+		}
+
+		unsigned num;
+		if (flag == DATA_MATRIX)
+		{
+			file.read((char*)&num, sizeof(num));
+			if (num > 0)
+			{
+				m_matrices.resize(num);
+				file.read((char*)&m_matrices[0], sizeof(Matrix4f)*num);
+			}
+		}
+		else if (flag == DATA_GRID)
+		{
+			file.read((char*)&num, sizeof(num));
+			if (num > 0)
+			{
+				m_gridData.resize(num);
+				file.read((char*)&m_gridData[0], sizeof(GridData)*num);
+			}
+		}
+	}
+
+	file.close();
 }
