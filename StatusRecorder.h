@@ -43,7 +43,8 @@ class StatusRecorder
 {
 public:
 	typedef map<int,MpmStatus> StatusMap;
-	StatusRecorder(){}
+	typedef deque<int>			LruQueue;
+	StatusRecorder():m_lruLength(100){}
 
 	void				clear(int startFrame = 0);
 
@@ -52,6 +53,45 @@ public:
 	const MpmStatus*	getStatusPtr(int ithFrame);
 	bool				readStatus(const char* fileName, int ithFrame, bool append);
 	bool				writeStatus(const char* fileName, int ithFrame);
+
 private:
+	/*
+	bool				updateLRU(int frameID, vector<int>& itemToDelete)
+	{
+		LruQueue::iterator pI = m_lru.find(frameID);
+		if (pI != m_lru.end())
+		{
+			m_lru.erase(pI);
+		}
+		m_lru.push_front(pI);
+
+		if (m_lru.size() > m_lruLength)
+		{
+			itemToDelete.clear();
+			for (int i = m_lruLength; i < m_lru.size(); ++i)
+			{
+				itemToDelete.push_back(i);
+			}
+			m_lru.resize(m_lruLength);
+		}
+	}
+
+	bool				deleteItems(const vector<int>& ids)
+	{
+		for (int i = 0; i < ids.size(); ++i)
+		{
+			int id = ids[i];
+			StatusMap::iterator pS = m_statusList.find(id);
+			if (pS == m_statusList.end())
+			{
+				continue;
+			}
+
+
+		}
+	}*/
+
+	int					m_lruLength;
 	StatusMap			m_statusList;
+	LruQueue			m_lru;
 };

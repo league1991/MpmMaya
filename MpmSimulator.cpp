@@ -1036,6 +1036,7 @@ bool MpmSimulator::initSolver()
 	MPlug gravityPlug = Global::getPlug(this, s_gravityName[0]);
 	MPlug deltaTPlug = Global::getPlug(this, s_deltaTName[0]);
 	MPlug particleDensityPlug = Global::getPlug(this, s_particleDensityName[0]);
+	MPlug nSubstepPlug = Global::getPlug(this, s_nSubStepName[0]);
 
 	MPlug initTypePlug = Global::getPlug(this, s_initTypeName[0]);
 
@@ -1057,6 +1058,7 @@ bool MpmSimulator::initSolver()
 	Vector3f gravity;
 	s = Global::getFloat(gravityPlug, &gravity[0], 3);
 	CHECK_MSTATUS_AND_RETURN(s, false);
+	float mayaDeltaT = deltaTPlug.asFloat();
 	m_core.setConfigure(youngsPlug.asFloat(),
 						possionPlug.asFloat(),
 						hardenPlug.asFloat(),
@@ -1064,7 +1066,8 @@ bool MpmSimulator::initSolver()
 						cStrePlug.asFloat(),
 						frictionPlug.asFloat(),
 						flipPlug.asFloat(),
-						deltaTPlug.asFloat(),
+						mayaDeltaT / nSubstepPlug.asInt(),
+						mayaDeltaT,
 						particleDensityPlug.asFloat(),
 						gravity);
 

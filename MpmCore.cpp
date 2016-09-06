@@ -560,6 +560,8 @@ void MpmCore::solve_grid_collision()
 				//velocity of collider
 				Vector3f vco= (1-ctrl_params.iteplote) * cell->collision_velocity_prev
 								+ ctrl_params.iteplote * cell->collision_velocity;
+
+				vco *= (ctrl_params.deltaT / ctrl_params.maya_deltaT);
 				Vector3f sdf_normal;
 				Vector3f grid_pos= grid->grid_min + grid->grid_size.cwiseProduct(Vector3f(x,y,z));// * index;
 				if(getSDFNormal(grid_pos,sdf_normal))
@@ -862,6 +864,8 @@ void MpmCore::solve_particle_collision()
 		GridNode* cell = grid->getNode(p_grid_index_i[0], p_grid_index_i[1], p_grid_index_i[2]);
 		Vector3f vco= (1-ctrl_params.iteplote) * cell->collision_velocity_prev
 						+ ctrl_params.iteplote * cell->collision_velocity;
+
+		vco *= (ctrl_params.deltaT / ctrl_params.maya_deltaT);
 
 		if(getSDFNormal(ptcl->position,sdf_normal))
 		//if(getSDFNormal_box(p_grid_index_i_new,sdf_normal))
@@ -1225,6 +1229,7 @@ void MpmCore::setConfigure(float young,
 						   float friction,
 						   float flipPercent,
 						   float deltaT,
+						   float mayaDeltaT,
 						   float particleDensity,
 						   const Vector3f& gravity)
 {
@@ -1236,6 +1241,7 @@ void MpmCore::setConfigure(float young,
 	ctrl_params.frictionCoeff = friction;
 	ctrl_params.flip_percent = flipPercent;
 	ctrl_params.deltaT = deltaT;
+	ctrl_params.maya_deltaT = mayaDeltaT;
 	ctrl_params.frame = 0;
 	ctrl_params.gravity = gravity;
 	ctrl_params.particleDensity = particleDensity;

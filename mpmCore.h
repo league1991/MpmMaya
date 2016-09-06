@@ -114,7 +114,7 @@ public:
 
 	GridField* getGridPtr(){return grid;}
 
-	void	setConfigure(float young, float possion, float hardening, float criticalComp, float criticalStretch, float friction, float flipPercent, float deltaT, float particleDensity, const Vector3f& gravity);
+	void	setConfigure(float young, float possion, float hardening, float criticalComp, float criticalStretch, float friction, float flipPercent, float deltaT, float mayaDeltaT, float particleDensity, const Vector3f& gravity);
 	void	addBall(const Vector3f& center, float radius, int nParticlePerCell, int ithFrame);
 	void	addTwoBalls(int nParticlePerCell = 1, int ithFrame = 0);
 
