@@ -56,6 +56,11 @@ struct GridField
 				index[1]>=0 && index[1]<grid_division[1] &&
 				index[2]>=0 && index[2]<grid_division[2];
 	}
+
+	inline bool getTotalCell()const
+	{
+		return grid_division[0] * grid_division[1] * grid_division[2];
+	}
 	
 	GridField(const Vector3f& grid_size, const Vector3f& grid_min, const Vector3i& grid_division, int boundary);
 };
@@ -157,8 +162,6 @@ public:
 				}
 			}
 		}
-		//void MpmCore::init_particle_volume_velocity();
-		//commitInit(ithFrame);
 		return true;
 	}
 
@@ -319,7 +322,15 @@ private:
 	//step 5 handle grid collision
 	void solve_grid_collision();
 
-	float clamp(float value, float low, float high);
+	template<typename ValType>
+	ValType clamp(ValType value, ValType low, ValType high)
+	{
+		if(value < low)
+			return low;
+		if(value> high)
+			return high;
+		return value;
+	}
 
 	//step 7 update deformation gradient
 	void compute_deformation_gradient_F();
