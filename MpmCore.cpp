@@ -574,14 +574,7 @@ void MpmCore::solve_grid_collision()
 			}
 }
 
-float MpmCore::clamp( float value, float low, float high )
-{
-	if(value < low)
-		return low;
-	if(value> high)
-		return high;
-	return value;
-}
+
 
 void MpmCore::compute_deformation_gradient_F()
 {
@@ -650,7 +643,7 @@ void MpmCore::parallel_compute_deformation_gradient_F()
 			Vector3f p_grid_index_f = ptcl->getGridIdx(grid->grid_min,grid->grid_size);
 			Vector3i p_grid_index_i = ptcl->getGridIdx_int(grid->grid_min,grid->grid_size);
 
-			Matrix3f velocity_gradient;
+			Matrix3d velocity_gradient;
 			velocity_gradient.setZero();
 
 			for(int z=-2; z<=2;z++)
@@ -663,39 +656,39 @@ void MpmCore::parallel_compute_deformation_gradient_F()
 						if(inGrid(index, grid->grid_division))
 						{
 							Vector3f xp=(ptcl->position - grid->grid_size.cwiseProduct(Vector3f(index[0],index[1],index[2]))-grid->grid_min).cwiseQuotient(grid->grid_size);
-							Vector3f gradient_weight=weight_gradientF(xp);
+							Vector3d gradient_weight = weight_gradientF(xp).cast<double>();
 							//fomular in step 4
 							GridNode* node = grid->getNode(index[0], index[1], index[2]);
-							velocity_gradient+=Eigen::Vector3f(node->velocity_new)*
-								Eigen::Vector3f(gradient_weight).transpose();
+							velocity_gradient += node->velocity_new.cast<double>()*
+								gradient_weight.transpose();
 						}
 					}
 				}
 			}
 
 			//fomular 11
-			Eigen::Matrix3f Fe_new=(Eigen::Matrix3f::Identity()+velocity_gradient*ctrl_params.deltaT)*ptcl->Fe;
-			Eigen::Matrix3f F_new=Fe_new*ptcl->Fp;
-			Eigen::JacobiSVD<Eigen::Matrix3f> svd(Fe_new, Eigen::ComputeFullV | Eigen::ComputeFullU);
+			Eigen::Matrix3d Fe_new = (Eigen::Matrix3d::Identity()+velocity_gradient*ctrl_params.deltaT)* ptcl->Fe.cast<double>();
+			Eigen::Matrix3d F_new = Fe_new * ptcl->Fp.cast<double>();
+			Eigen::JacobiSVD<Eigen::Matrix3d> svd(Fe_new, Eigen::ComputeFullV | Eigen::ComputeFullU);
 
-			Matrix3f clamped_S;
+			Matrix3d clamped_S;
 			clamped_S.setZero();
-			clamped_S(0,0)=clamp(svd.singularValues()(0), 1-ctrl_params.critical_compression, 1+ ctrl_params.critical_stretch);
-			clamped_S(1,1)=clamp(svd.singularValues()(1), 1-ctrl_params.critical_compression, 1+ ctrl_params.critical_stretch);
-			clamped_S(2,2)=clamp(svd.singularValues()(2), 1-ctrl_params.critical_compression, 1+ ctrl_params.critical_stretch);
+			clamped_S(0,0)=clamp(svd.singularValues()(0), 1.0-ctrl_params.critical_compression, 1.0+ ctrl_params.critical_stretch);
+			clamped_S(1,1)=clamp(svd.singularValues()(1), 1.0-ctrl_params.critical_compression, 1.0+ ctrl_params.critical_stretch);
+			clamped_S(2,2)=clamp(svd.singularValues()(2), 1.0-ctrl_params.critical_compression, 1.0+ ctrl_params.critical_stretch);
 
-			Matrix3f clamped_S_inv;
+			Matrix3d clamped_S_inv;
 			clamped_S_inv.setZero();
 			clamped_S_inv(0,0)=1/clamped_S(0,0);
 			clamped_S_inv(1,1)=1/clamped_S(1,1);
 			clamped_S_inv(2,2)=1/clamped_S(2,2);
 
-			Eigen::Matrix3f U=svd.matrixU();
-			Eigen::Matrix3f V=svd.matrixV();
+			Eigen::Matrix3d U=svd.matrixU();
+			Eigen::Matrix3d V=svd.matrixV();
 
 			//fomular 12
-			ptcl->Fe = U*clamped_S    *V.transpose();
-			ptcl->Fp = V*clamped_S_inv*U.transpose()*F_new;
+			ptcl->Fe = (U*clamped_S    *V.transpose()).cast<float>();
+			ptcl->Fp = (V*clamped_S_inv*U.transpose()*F_new).cast<float>();
 		}
 
 	});

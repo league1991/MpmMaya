@@ -10,7 +10,10 @@
 #include <Eigen/LU>
 typedef Eigen::Matrix3f Matrix3f;
 typedef Eigen::Matrix4f Matrix4f;
+typedef Eigen::Matrix3d Matrix3d;
+typedef Eigen::Matrix4d Matrix4d;
 typedef Eigen::Vector3f	Vector3f;
+typedef Eigen::Vector3d	Vector3d;
 typedef Eigen::Vector3i	Vector3i;
 
 #include <tbb/mutex.h>
